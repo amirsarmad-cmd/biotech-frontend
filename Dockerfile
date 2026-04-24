@@ -10,7 +10,6 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-# API URL is baked in at build time (can be overridden at runtime for server components)
 ARG NEXT_PUBLIC_API_URL=https://biotech-api-production-7ec4.up.railway.app
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
@@ -25,4 +24,5 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 USER nextjs
 EXPOSE 3000
 ENV HOSTNAME="0.0.0.0"
-CMD ["node", "server.js"]
+# Bind to Railway-injected $PORT, fall back to 3000 locally
+CMD ["sh", "-c", "HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node server.js"]
