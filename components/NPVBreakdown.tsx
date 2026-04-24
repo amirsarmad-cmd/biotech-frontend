@@ -16,7 +16,7 @@ interface NPVProps {
 
 export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
   // Handle skipped state
-  if (data && typeof data === 'object' && 'status' in data && (data as { status: string }).status === 'skipped') {
+  if (data && typeof data === 'object' && 'status' in data && ((data as unknown) as { status?: string }).status === 'skipped') {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
         <h2 className="mb-2">NPV Analysis</h2>
@@ -24,7 +24,7 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
           <div className="flex items-start gap-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
             <div className="text-sm text-neutral-400">
-              {(data as { reason: string }).reason}
+              {((data as unknown) as { reason?: string }).reason}
             </div>
           </div>
         </div>
