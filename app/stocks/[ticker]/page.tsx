@@ -7,9 +7,9 @@ import { ArrowLeft } from 'lucide-react';
 import {
   getStockDetail, getStockNews, getStockAnalyst, getStockSocial,
   getFundamentals, getHistory,
-  type StockDetail,
+  type StockDetail, type NPVFull,
 } from '@/lib/api';
-import { formatCurrency, formatMarketCap, formatDate, daysUntil, catalystColor, probColor } from '@/lib/utils';
+import { formatCurrency, formatMarketCap, formatDate, daysUntil, catalystColor, probColor, formatPercent } from '@/lib/utils';
 import { NPVBreakdown } from '@/components/NPVBreakdown';
 import { NewsPanel } from '@/components/NewsPanel';
 import { AnalystPanel } from '@/components/AnalystPanel';
@@ -33,38 +33,33 @@ type Period = '3mo' | '6mo' | '1y' | '2y';
 export default function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = use(params);
   const TICKER = ticker.toUpperCase();
-  const [period, setPeriod] = useState<Period>('1y');
+  const [period, setPeriod] = useState<Period>('2y');
 
   const stockQ = useQuery({
     queryKey: ['stock', TICKER],
     queryFn: () => getStockDetail(TICKER, true) as Promise<StockDetailExt>,
     staleTime: 60_000,
   });
-
   const newsQ = useQuery({
     queryKey: ['news', TICKER],
     queryFn: () => getStockNews(TICKER, 25),
     staleTime: 5 * 60_000,
   });
-
   const analystQ = useQuery({
     queryKey: ['analyst', TICKER],
     queryFn: () => getStockAnalyst(TICKER),
     staleTime: 10 * 60_000,
   });
-
   const socialQ = useQuery({
     queryKey: ['social', TICKER],
     queryFn: () => getStockSocial(TICKER),
     staleTime: 10 * 60_000,
   });
-
   const fundQ = useQuery({
     queryKey: ['fund', TICKER],
     queryFn: () => getFundamentals(TICKER),
     staleTime: 10 * 60_000,
   });
-
   const histQ = useQuery({
     queryKey: ['hist', TICKER, period],
     queryFn: () => getHistory(TICKER, period),
@@ -72,7 +67,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
   });
 
   const stock = stockQ.data;
-  const npv = stock?.npv;
+  const npvRaw = stock?.npv;
+  const npv: NPVFull | null = (npvRaw && typeof npvRaw === 'object' && !('status' in npvRaw) && !('error' in npvRaw))
+    ? (npvRaw as NPVFull)
+    : null;
 
   return (
     <div className="space-y-6">
@@ -80,19 +78,16 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
         <ArrowLeft className="h-4 w-4" /> Back to screener
       </Link>
 
-      {stockQ.isLoading && (
-        <div className="h-64 animate-pulse rounded-lg border border-border bg-panel" />
-      )}
-
+      {stockQ.isLoading && <div className="h-64 animate-pulse rounded-lg border border-border bg-panel" />}
       {stockQ.error && (
-        <div className="rounded-lg border border-danger/30 bg-danger/10 p-4 text-sm text-red-300">
+        <div className="rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-300">
           Error: {(stockQ.error as Error).message}
         </div>
       )}
 
       {stock && (
         <>
-          {/* ───── HEADER ───── */}
+          {/* Header */}
           <div className="rounded-lg border border-border bg-panel p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
@@ -110,35 +105,66 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
                     : <span className="text-neutral-500 text-base">No live price</span>}
                 </div>
                 <div className="text-sm text-neutral-400">Market cap {formatMarketCap(stock.market_cap_m)}</div>
+                {npv?.baseline_price != null && (
+                  <div className="mt-1 text-xs text-neutral-500">
+                    baseline {formatCurrency(npv.baseline_price)} ({npv.baseline_days ?? 30}d ago)
+                    {npv.implied_move_pct != null && (
+                      <span className={` ml-1 ${npv.implied_move_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                        {formatPercent(npv.implied_move_pct)}
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Primary catalyst card */}
-            <div className="mt-6 rounded-md border border-border bg-bg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-xs uppercase tracking-wide text-neutral-500">Primary catalyst</div>
-                  <div className={`mt-1 text-lg font-semibold ${catalystColor(stock.primary_catalyst.type)}`}>
-                    {stock.primary_catalyst.type}
-                  </div>
+            {/* Top 3-col: catalyst / rating breakdown / big probability */}
+            <div className="mt-6 grid gap-4 lg:grid-cols-[2fr,2fr,1fr]">
+              {/* Catalyst details */}
+              <div className="rounded-md border border-border bg-bg p-4">
+                <div className="text-xs uppercase tracking-wide text-neutral-500">Primary catalyst</div>
+                <div className={`mt-1 text-lg font-semibold ${catalystColor(stock.primary_catalyst.type)}`}>
+                  {stock.primary_catalyst.type}
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-neutral-400">{formatDate(stock.primary_catalyst.date)}</div>
+                <div className="mt-2 text-sm text-neutral-400">
+                  {formatDate(stock.primary_catalyst.date)}
                   {daysUntil(stock.primary_catalyst.date) != null && (
-                    <div className="text-xs text-neutral-600">{daysUntil(stock.primary_catalyst.date)} days out</div>
+                    <span className="ml-2 text-xs text-neutral-500">
+                      · {daysUntil(stock.primary_catalyst.date)}d out
+                    </span>
                   )}
                 </div>
-                <div className="text-right">
-                  <div className="text-xs uppercase tracking-wide text-neutral-500">Probability</div>
-                  <div className={`mt-1 text-xl font-mono font-semibold ${probColor(stock.primary_catalyst.probability)}`}>
-                    {(stock.primary_catalyst.probability * 100).toFixed(0)}%
-                  </div>
-                </div>
+                <div className="mt-2 text-sm text-neutral-300">{stock.primary_catalyst.description}</div>
               </div>
-              <div className="mt-3 text-sm text-neutral-300">{stock.primary_catalyst.description}</div>
+
+              <RatingBreakdown stock={stock} />
+
+              {/* Big probability display */}
+              <div className="rounded-md border border-border bg-bg p-4 text-center">
+                <div className="text-xs uppercase tracking-wide text-neutral-500">Probability</div>
+                <div className={`mt-2 text-5xl font-bold ${probColor(stock.primary_catalyst.probability)}`}>
+                  {(stock.primary_catalyst.probability * 100).toFixed(0)}%
+                </div>
+                <div className="mt-2 h-2 rounded-full bg-neutral-800 overflow-hidden">
+                  <div
+                    className={`h-full ${
+                      stock.primary_catalyst.probability >= 0.7 ? 'bg-emerald-500'
+                      : stock.primary_catalyst.probability >= 0.5 ? 'bg-amber-500'
+                      : 'bg-red-500'
+                    }`}
+                    style={{ width: `${stock.primary_catalyst.probability * 100}%` }}
+                  />
+                </div>
+                {npv?.combined_prob != null && (
+                  <div className="mt-3 text-xs">
+                    <div className="text-neutral-500">Combined P(value)</div>
+                    <div className="font-mono text-neutral-100">{(npv.combined_prob * 100).toFixed(0)}%</div>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* All catalysts with NPV-anchor highlight */}
+            {/* All catalysts list */}
             {stock.all_catalysts.length > 1 && (
               <div className="mt-4">
                 <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
@@ -180,19 +206,22 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             )}
           </div>
 
-          {/* ───── NPV: Section 1 (main cards) ───── */}
+          {/* Section 1: NPV Breakdown */}
           <NPVBreakdown
             data={stock.npv}
             currentPrice={stock.current_price}
             npvCatalyst={stock.npv_catalyst}
           />
 
-          {/* ───── Section 2: Stock Impact ───── */}
-          {npv && !('status' in npv && npv.status === 'skipped') && !('error' in npv) && (
-            <StockImpactPanel npv={npv} />
+          {/* Section 2 + 3 side by side */}
+          {npv && (
+            <div className="grid gap-6 lg:grid-cols-2">
+              <StockImpactPanel npv={npv} />
+              <ProbabilityMathPanel npv={npv} />
+            </div>
           )}
 
-          {/* ───── Section 2B: Adverse Risk Factors ───── */}
+          {/* Section 2B: Risk Factors */}
           {npv && npv.risk_factor_breakdown && (
             <RiskFactorsPanel
               breakdown={npv.risk_factor_breakdown}
@@ -202,15 +231,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             />
           )}
 
-          {/* ───── Section 3: Probability Math ───── */}
-          {npv && !('status' in npv && npv.status === 'skipped') && !('error' in npv) && (
-            <ProbabilityMathPanel npv={npv} />
-          )}
-
-          {/* ───── Key + Extended Fundamentals ───── */}
+          {/* Fundamentals */}
           <FundamentalsPanel data={fundQ.data} loading={fundQ.isLoading} />
 
-          {/* ───── Price History chart with catalyst markers ───── */}
+          {/* Price chart */}
           <PriceHistoryChart
             data={histQ.data}
             loading={histQ.isLoading}
@@ -219,16 +243,63 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             onPeriodChange={setPeriod}
           />
 
-          {/* ───── Analyst + Social side-by-side ───── */}
+          {/* Analyst + Social */}
           <div className="grid gap-6 lg:grid-cols-2">
             <AnalystPanel data={analystQ.data} loading={analystQ.isLoading} />
             <SocialPanel data={socialQ.data} loading={socialQ.isLoading} />
           </div>
 
-          {/* ───── News ───── */}
+          {/* News */}
           <NewsPanel data={newsQ.data} loading={newsQ.isLoading} />
         </>
       )}
+    </div>
+  );
+}
+
+function RatingBreakdown({ stock }: { stock: StockDetailExt }) {
+  const p = stock.primary_catalyst.probability;
+  const news = Math.min((stock.scores.news_count || 0) / 20, 1);
+  const cap = Math.min((stock.market_cap_m || 0) / 200000, 1);
+  const days = daysUntil(stock.primary_catalyst.date);
+  const prox = days != null && days >= 0 ? Math.max(0, 1 - days / 365) : 0;
+  const sentAbs = stock.scores.sentiment != null ? Math.max(0, Math.min(1, (stock.scores.sentiment + 1) / 2)) : 0.5;
+
+  const factors = [
+    { label: '🎯 Catalyst probability', val: p, w: 0.35, reason: 'Approval likelihood' },
+    { label: '📰 News sentiment', val: sentAbs, w: 0.15, reason: `Polarity: ${stock.scores.sentiment?.toFixed(2) ?? '—'}` },
+    { label: '📊 News activity', val: news, w: 0.10, reason: `${stock.scores.news_count ?? 0} articles / 30d` },
+    { label: '💰 Market cap', val: cap, w: 0.10, reason: `${formatMarketCap(stock.market_cap_m)} vs $200B` },
+    { label: '⏳ Days proximity', val: prox, w: 0.30, reason: `${days ?? '—'} days to catalyst` },
+  ];
+  const total = factors.reduce((s, f) => s + f.val * f.w, 0);
+
+  return (
+    <div className="rounded-md border border-border bg-bg p-4">
+      <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">Rating breakdown</div>
+      <div className="space-y-2">
+        {factors.map((f) => {
+          const pct = Math.round(f.val * 100);
+          const color = f.val >= 0.7 ? 'bg-emerald-500' : f.val >= 0.4 ? 'bg-amber-500' : 'bg-red-500';
+          return (
+            <div key={f.label}>
+              <div className="flex justify-between text-xs">
+                <span className="text-neutral-300">{f.label}</span>
+                <span className="font-mono text-neutral-500">
+                  {pct}% × {(f.w * 100).toFixed(0)}% = {(f.val * f.w).toFixed(2)}
+                </span>
+              </div>
+              <div className="mt-1 h-1.5 rounded-full bg-neutral-800 overflow-hidden">
+                <div className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+              </div>
+              <div className="mt-0.5 text-[10px] text-neutral-600">{f.reason}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="mt-3 border-t border-border pt-2 text-sm font-mono">
+        Overall: <strong className="text-neutral-100">{total.toFixed(2)}</strong> / 1.00
+      </div>
     </div>
   );
 }
