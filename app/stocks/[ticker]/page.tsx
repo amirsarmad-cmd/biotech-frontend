@@ -4,12 +4,22 @@ import { use } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
-import { getStockDetail, getStockNews, getStockAnalyst, getStockSocial } from '@/lib/api';
-import { formatCurrency, formatPercent, formatMarketCap, formatDate, daysUntil, catalystColor, probColor, stripTags } from '@/lib/utils';
+import { getStockDetail, getStockNews, getStockAnalyst, getStockSocial, type StockDetail } from '@/lib/api';
+import { formatCurrency, formatMarketCap, formatDate, daysUntil, catalystColor, probColor } from '@/lib/utils';
 import { NPVBreakdown } from '@/components/NPVBreakdown';
 import { NewsPanel } from '@/components/NewsPanel';
 import { AnalystPanel } from '@/components/AnalystPanel';
 import { SocialPanel } from '@/components/SocialPanel';
+
+// Extend type inline to handle the npv_catalyst field from updated API
+type StockDetailExt = StockDetail & {
+  npv_catalyst?: {
+    type: string;
+    date: string;
+    probability: number;
+    description: string;
+  } | null;
+};
 
 export default function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = use(params);
@@ -17,7 +27,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
 
   const stockQ = useQuery({
     queryKey: ['stock', TICKER],
-    queryFn: () => getStockDetail(TICKER, true),
+    queryFn: () => getStockDetail(TICKER, true) as Promise<StockDetailExt>,
     staleTime: 60_000,
   });
 
@@ -72,7 +82,9 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               </div>
               <div className="text-right">
                 <div className="text-3xl font-semibold tracking-tight">
-                  {stock.current_price != null ? formatCurrency(stock.current_price) : <span className="text-neutral-500 text-base">No live price</span>}
+                  {stock.current_price != null
+                    ? formatCurrency(stock.current_price)
+                    : <span className="text-neutral-500 text-base">No live price</span>}
                 </div>
                 <div className="text-sm text-neutral-400">Market cap {formatMarketCap(stock.market_cap_m)}</div>
               </div>
@@ -106,25 +118,51 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             {/* All catalysts */}
             {stock.all_catalysts.length > 1 && (
               <div className="mt-4">
-                <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">All catalysts ({stock.all_catalysts.length})</div>
+                <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
+                  All catalysts ({stock.all_catalysts.length})
+                </div>
                 <div className="space-y-2">
-                  {stock.all_catalysts.slice(1).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-md border border-border bg-bg/40 px-3 py-2 text-sm">
-                      <div>
-                        <span className={catalystColor(c.type)}>{c.type}</span>
-                        <span className="mx-2 text-neutral-600">·</span>
-                        <span className="text-neutral-400">{formatDate(c.date)}</span>
+                  {stock.all_catalysts.slice(1).map((c, i) => {
+                    const isNpvAnchor =
+                      stock.npv_catalyst &&
+                      stock.npv_catalyst.type === c.type &&
+                      stock.npv_catalyst.date === c.date;
+                    return (
+                      <div
+                        key={i}
+                        className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
+                          isNpvAnchor
+                            ? 'border-emerald-500/30 bg-emerald-500/5'
+                            : 'border-border bg-bg/40'
+                        }`}
+                      >
+                        <div>
+                          <span className={catalystColor(c.type)}>{c.type}</span>
+                          <span className="mx-2 text-neutral-600">·</span>
+                          <span className="text-neutral-400">{formatDate(c.date)}</span>
+                          {isNpvAnchor && (
+                            <span className="ml-2 rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-300">
+                              NPV anchor
+                            </span>
+                          )}
+                        </div>
+                        <div className={`font-mono ${probColor(c.probability)}`}>
+                          {(c.probability * 100).toFixed(0)}%
+                        </div>
                       </div>
-                      <div className={`font-mono ${probColor(c.probability)}`}>{(c.probability * 100).toFixed(0)}%</div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
 
-          {/* NPV Breakdown */}
-          <NPVBreakdown data={stock.npv} currentPrice={stock.current_price} />
+          {/* NPV Breakdown — uses npv_catalyst, not primary */}
+          <NPVBreakdown
+            data={stock.npv}
+            currentPrice={stock.current_price}
+            npvCatalyst={stock.npv_catalyst}
+          />
 
           {/* Two-column: Analyst + Social */}
           <div className="grid gap-6 lg:grid-cols-2">
