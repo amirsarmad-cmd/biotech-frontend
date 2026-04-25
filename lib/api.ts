@@ -286,6 +286,86 @@ export async function getJob(jobId: string): Promise<JobStatus> {
   return apiFetch(`/jobs/${encodeURIComponent(jobId)}`);
 }
 
+// ---- V2 NPV (Phase 2B): structured economics + true rNPV --------------------
+export interface DrugEconomicsV2 {
+  catalyst_scope?: 'first_approval' | 'new_indication' | 'label_expansion' | 'phase_readout' | 'earnings' | 'other' | string;
+  indication?: string;
+  modality?: 'small_molecule' | 'biologic' | 'antibody' | 'cell_gene' | 'rna' | 'other' | string;
+  first_in_class?: boolean | null;
+  addressable_population_us?: number | null;
+  addressable_population_global?: number | null;
+  annual_cost_min_usd?: number | null;
+  annual_cost_max_usd?: number | null;
+  standard_of_care_cost_usd?: number | null;
+  penetration_min_pct?: number | null;
+  penetration_max_pct?: number | null;
+  penetration_mid_pct?: number | null;
+  launch_year?: number | null;
+  peak_sales_year?: number | null;
+  time_to_peak_years?: number | null;
+  patent_expiry_date?: string | null;
+  loe_dropoff_pct?: number | null;
+  cogs_pct_estimate?: number | null;
+  commercial_success_prob?: number | null;
+  competitors?: string[];
+  competitive_intensity?: 'low' | 'medium' | 'high' | string;
+  key_risks?: string[];
+  llm_rationale?: string;
+  llm_provider?: string;
+  peak_sales_usd_b?: number;
+  _from_cache?: boolean;
+  error?: string | null;
+}
+
+export interface RnpvForecastRow {
+  year: number;
+  revenue_m: number;
+  ebit_m?: number;
+  cash_flow_m: number;
+  discount_factor: number;
+  pv_m: number;
+  penetration_pct: number;
+}
+
+export interface RnpvFull {
+  rnpv_m: number;
+  deterministic_npv_m: number;
+  peak_sales_usd_b: number;
+  fundamental_impact_pct: number;
+  revenue_forecast: RnpvForecastRow[];
+  assumptions_used?: Record<string, unknown>;
+  error?: string | null;
+}
+
+export interface NPVAnalyzeResponse {
+  ticker: string;
+  drug_name?: string;
+  economics?: Record<string, unknown>;       // legacy LLM economics
+  npv?: NPVFull;                              // legacy multiple-based NPV
+  economics_v2?: DrugEconomicsV2;             // structured fields
+  rnpv?: RnpvFull;                            // year-by-year DCF
+  from_cache?: boolean;
+}
+
+export async function analyzeNpv(payload: {
+  ticker: string;
+  catalyst_type?: string;
+  market_cap_m?: number;
+  p_commercial?: number;
+  discount_rate?: number;
+  tax_rate?: number;
+  cogs_pct?: number;
+  force_refresh?: boolean;
+  drug_name_override?: string;
+  description_override?: string;
+}): Promise<NPVAnalyzeResponse> {
+  return apiFetch('/analyze/npv', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function health(): Promise<{ status: string; db: string; redis: string }> {
   return apiFetch('/health');
 }

@@ -27,6 +27,7 @@ import { InvestmentCalculator } from '@/components/InvestmentCalculator';
 import { CatalystTimeline } from '@/components/CatalystTimeline';
 import { NPVSlidersPanel } from '@/components/NPVSlidersPanel';
 import { CatalystRiskPanel } from '@/components/CatalystRiskPanel';
+import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -262,6 +263,13 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
           <NPVBreakdown
             data={stock.npv}
             currentPrice={stock.current_price}
+            npvCatalyst={stock.npv_catalyst}
+          />
+
+          {/* Section 1B: rNPV V2 — structured economics + true year-by-year DCF */}
+          <RnpvBreakdownV2
+            ticker={TICKER}
+            marketCapM={stock.market_cap_m}
             npvCatalyst={stock.npv_catalyst}
           />
 
