@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import type { Fundamentals } from '@/lib/api';
 
 function fmt$B(v: number) { return v ? `$${(v / 1e9).toFixed(2)}B` : 'N/A'; }
@@ -22,7 +24,7 @@ export function FundamentalsPanel({ data, loading }: { data?: Fundamentals; load
 
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
-      <h3 className="mb-4 text-lg">Key Fundamentals</h3>
+      <h3 className="mb-4 text-lg">Key Fundamentals <InfoTooltip text={HELP.stockDetail.fundamentals_key} position="bottom" /></h3>
 
       {/* 6 top metrics */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
