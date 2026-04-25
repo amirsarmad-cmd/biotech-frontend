@@ -89,6 +89,37 @@ function fmtPct(v: number, decimals = 0): string {
 
 export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }: Props) {
   const [showRef, setShowRef] = useState(true);
+  const [showWeights, setShowWeights] = useState(false);
+  
+  // Per-catalyst probability overrides, persisted to localStorage by (ticker, catalyst_index)
+  const [probOverrides, setProbOverrides] = useState<Record<string, number>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = window.localStorage.getItem(`prob-overrides:${ticker}`);
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  
+  const setOverride = (key: string, prob: number) => {
+    const next = { ...probOverrides, [key]: prob };
+    setProbOverrides(next);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(`prob-overrides:${ticker}`, JSON.stringify(next));
+      } catch { /* ignore */ }
+    }
+  };
+  
+  const resetOverride = (key: string) => {
+    const next = { ...probOverrides };
+    delete next[key];
+    setProbOverrides(next);
+    if (typeof window !== 'undefined') {
+      try {
+        window.localStorage.setItem(`prob-overrides:${ticker}`, JSON.stringify(next));
+      } catch { /* ignore */ }
+    }
+  };
 
   // Build enriched catalyst rows
   const rows = useMemo(() => {
@@ -96,15 +127,22 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
 
     return catalysts
       .map((c, idx) => {
+        const key = `${c.type}-${c.date}-${idx}`;
+        const baseProb = c.probability;
+        const effectiveProb = probOverrides[key] != null ? probOverrides[key] : baseProb;
         const [upPct, downPct] = getReferenceMove(c.type);
         const days = daysUntil(c.date);
-        const expectedMovePct = c.probability * upPct + (1 - c.probability) * downPct;
-        // Expected NPV impact in $M = expected move pct * market cap
+        const expectedMovePct = effectiveProb * upPct + (1 - effectiveProb) * downPct;
         const expectedNpvImpactM = (expectedMovePct / 100) * marketCapM;
+        const isOverridden = probOverrides[key] != null;
 
         return {
           idx,
+          key,
           ...c,
+          baseProb,
+          effectiveProb,
+          isOverridden,
           upPct,
           downPct,
           days,
@@ -113,7 +151,7 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
         };
       })
       .sort((a, b) => a.days - b.days);
-  }, [catalysts, marketCapM]);
+  }, [catalysts, marketCapM, probOverrides]);
 
   // Multi-catalyst aggregate: probability-weighted total expected % move (additive but capped at -50%/+150%)
   const aggregate = useMemo(() => {
@@ -136,7 +174,7 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
     return null;
   }
 
-  const helpText = "Every upcoming catalyst with the typical magnitude of move based on historical biotech catalyst data. The 'expected move' is the probability-weighted average — if probability of approval is 70% and approval gives +25%, rejection gives -20%, then expected = 0.70*25 + 0.30*(-20) = +11.5%. NPV impact applies that to your market cap.";
+  const helpText = "Every upcoming catalyst with the typical magnitude of move based on historical biotech catalyst data. The 'expected move' is the probability-weighted average. Click 'Adjust weights' to override individual probabilities — overrides save to your browser. Reference moves: FDA Decision ±25/-20%, Phase 3 ±35/-30%, AdComm ±15/-12%, etc.";
 
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
@@ -147,12 +185,20 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
           <InfoTooltip text={helpText} position="bottom" />
           <span className="ml-2 rounded-full bg-violet-500/10 px-2 py-0.5 text-xs text-violet-300">{rows.length} upcoming</span>
         </h3>
-        <button
-          onClick={() => setShowRef(s => !s)}
-          className="text-xs text-neutral-500 hover:text-neutral-300 transition"
-        >
-          {showRef ? 'Hide reference' : 'Show reference'}
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowWeights(s => !s)}
+            className={`text-xs transition ${showWeights ? 'text-violet-300' : 'text-neutral-500 hover:text-neutral-300'}`}
+          >
+            {showWeights ? '✓ Adjust weights' : 'Adjust weights'}
+          </button>
+          <button
+            onClick={() => setShowRef(s => !s)}
+            className="text-xs text-neutral-500 hover:text-neutral-300 transition"
+          >
+            {showRef ? 'Hide reference' : 'Show reference'}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto -mx-2">
@@ -185,7 +231,38 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
                   {r.drug_name || r.description?.slice(0, 60) || '—'}
                 </td>
                 <td className="px-2 py-2 text-right font-mono text-neutral-400">{r.days >= 0 ? `+${r.days}d` : `${r.days}d`}</td>
-                <td className="px-2 py-2 text-right font-mono text-neutral-200">{(r.probability * 100).toFixed(0)}%</td>
+                <td className="px-2 py-2 text-right font-mono">
+                  {showWeights ? (
+                    <div className="flex items-center justify-end gap-2">
+                      <input
+                        type="range"
+                        min={0}
+                        max={100}
+                        step={5}
+                        value={Math.round(r.effectiveProb * 100)}
+                        onChange={e => setOverride(r.key, Number(e.target.value) / 100)}
+                        className="w-16 accent-violet-500"
+                      />
+                      <span className={`text-xs ${r.isOverridden ? 'text-violet-300' : 'text-neutral-200'}`}>
+                        {(r.effectiveProb * 100).toFixed(0)}%
+                      </span>
+                      {r.isOverridden && (
+                        <button
+                          onClick={() => resetOverride(r.key)}
+                          className="text-[10px] text-neutral-500 hover:text-amber-300"
+                          title="Reset to AI default"
+                        >
+                          ↺
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <span className={`text-neutral-200 ${r.isOverridden ? 'text-violet-300' : ''}`}>
+                      {(r.effectiveProb * 100).toFixed(0)}%
+                      {r.isOverridden && <span className="ml-1 text-[10px] text-violet-400">●</span>}
+                    </span>
+                  )}
+                </td>
                 {showRef && (
                   <>
                     <td className="px-2 py-2 text-right font-mono text-emerald-400/80">{fmtPct(r.upPct)}</td>
@@ -208,7 +285,7 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
         <div className="mt-4 rounded-md border border-violet-500/20 bg-violet-500/5 p-3">
           <div className="mb-2 flex items-center gap-2 text-xs font-medium text-violet-200">
             <Activity className="h-3.5 w-3.5" />
-            Multi-Catalyst Aggregate ({aggregate.n} catalysts)
+            Multi-Catalyst Aggregate ({aggregate.n} catalysts){Object.keys(probOverrides).length > 0 && <span className="text-[10px] text-violet-400">· {Object.keys(probOverrides).length} weight{Object.keys(probOverrides).length>1?'s':''} adjusted</span>}
             <InfoTooltip
               text="If all catalysts play out at their probability-weighted expected moves, the cumulative effect on this stock. Capped at ±300%/-90% for sanity."
               position="top"
