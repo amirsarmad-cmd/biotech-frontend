@@ -301,14 +301,28 @@ export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }:
             <Stat label="If all approve" value={fmtPct(aggregate.upsideAllPct)} icon={<TrendingUp className="h-3 w-3" />} positive />
             <Stat label="If all reject" value={fmtPct(aggregate.downsideAllPct)} icon={<TrendingDown className="h-3 w-3" />} negative />
           </div>
-          {primaryNpvB != null && (
-            <div className="mt-2 text-[10px] text-neutral-500">
-              Primary NPV (single catalyst): ${primaryNpvB.toFixed(2)}B · Multi-catalyst sum: ${(aggregate.totalExpectedNpvImpactM/1000).toFixed(2)}B
-              {Math.abs(primaryNpvB - aggregate.totalExpectedNpvImpactM/1000) > 0.5 && (
-                <span className="ml-1 text-amber-300">⚠ Significant divergence — anchor catalyst may not capture full pipeline value</span>
-              )}
-            </div>
-          )}
+          {primaryNpvB != null && (() => {
+            const aggregateB = aggregate.totalExpectedNpvImpactM / 1000;
+            const absDiff = Math.abs(primaryNpvB - aggregateB);
+            const denom = Math.max(Math.abs(primaryNpvB), 0.01);
+            const relDiff = absDiff / denom; // 1.0 = 100% diff
+            // Show divergence note only if (a) absolute difference > $1B AND
+            // (b) relative diff > 50% (i.e. aggregate is materially different,
+            // not just slightly off). For multi-catalyst stocks, aggregate > primary
+            // is *expected*, so phrase as informational not alarming.
+            const materiallyDifferent = absDiff > 1.0 && relDiff > 0.5;
+            const aggregateLarger = aggregateB > primaryNpvB;
+            return (
+              <div className="mt-2 text-[10px] text-neutral-500">
+                Primary NPV (single anchor catalyst): ${primaryNpvB.toFixed(2)}B · Multi-catalyst sum: ${aggregateB.toFixed(2)}B
+                {materiallyDifferent && (
+                  <span className="ml-1 text-amber-300/80">
+                    · {aggregateLarger ? 'Pipeline value beyond anchor — multiple catalysts contribute' : 'Anchor catalyst dominates pipeline value'}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>
