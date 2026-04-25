@@ -74,7 +74,7 @@ export default function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2"><BarChart3 className="h-6 w-6 text-emerald-400" /> Analytics</h1>
+        <h1 className="flex items-center gap-2"><BarChart3 className="h-6 w-6 text-emerald-400" /> Analytics <InfoTooltip text={HELP.analytics.title} position="bottom" size="md" /></h1>
         <p className="text-sm text-neutral-500 mt-1">Universe-wide insights across {q.data.universe_size} catalysts</p>
       </div>
 
@@ -87,7 +87,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Imminent catalysts */}
-      <Section title="Imminent catalysts (next 14 days)" icon={<Calendar className="h-5 w-5 text-amber-400" />}>
+      <Section title="Imminent catalysts (next 14 days)" icon={<Calendar className="h-5 w-5 text-amber-400" />} help={HELP.analytics.imminent}>
         {imminent.length === 0 ? (
           <p className="text-sm text-neutral-500">No catalysts in the next 14 days.</p>
         ) : (
@@ -126,7 +126,7 @@ export default function AnalyticsPage() {
 
       {/* Top performers */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Top by overall score" icon={<TrendingUp className="h-5 w-5 text-emerald-400" />}>
+        <Section title="Top by overall score" icon={<TrendingUp className="h-5 w-5 text-emerald-400" />} help={HELP.analytics.top_score}>
           <ol className="space-y-1 text-sm">
             {top10.map((s, i) => (
               <li key={`${s.ticker}-${s.catalyst_date}`} className="flex items-center gap-2 rounded-md border border-border bg-bg/40 px-3 py-2">
@@ -141,7 +141,7 @@ export default function AnalyticsPage() {
           </ol>
         </Section>
 
-        <Section title="Highest probability (≥70%)" icon={<Activity className="h-5 w-5 text-blue-400" />}>
+        <Section title="Highest probability (≥70%)" icon={<Activity className="h-5 w-5 text-blue-400" />} help={HELP.analytics.top_probability}>
           {topProb.length === 0 ? (
             <p className="text-sm text-neutral-500">No catalysts with probability ≥70%.</p>
           ) : (
@@ -163,7 +163,7 @@ export default function AnalyticsPage() {
 
       {/* Distributions */}
       <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="Catalyst type distribution" icon={null}>
+        <Section title="Catalyst type distribution" icon={null} help={HELP.analytics.catalyst_distribution}>
           <div className="space-y-2">
             {catalystSorted.map(([type, count]) => (
               <div key={type}>
@@ -179,7 +179,7 @@ export default function AnalyticsPage() {
           </div>
         </Section>
 
-        <Section title="Industry breakdown" icon={null}>
+        <Section title="Industry breakdown" icon={null} help={HELP.analytics.industry_breakdown}>
           <ul className="space-y-1 text-sm">
             {industriesSorted.map(([ind, count]) => (
               <li key={ind} className="flex justify-between rounded-md border border-border bg-bg/40 px-3 py-2">
@@ -206,10 +206,10 @@ function Stat({ label, value, suffix, accent = 'neutral', help }: { label: strin
   );
 }
 
-function Section({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+function Section({ title, icon, help, children }: { title: string; icon: React.ReactNode; help?: string; children: React.ReactNode }) {
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
-      <h2 className="mb-4 flex items-center gap-2 text-lg">{icon} {title}</h2>
+      <h2 className="mb-4 flex items-center gap-2 text-lg">{icon} {title}{help && <InfoTooltip text={help} position="bottom" />}</h2>
       {children}
     </div>
   );
