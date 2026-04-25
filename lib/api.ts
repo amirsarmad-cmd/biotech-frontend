@@ -289,3 +289,52 @@ export async function getJob(jobId: string): Promise<JobStatus> {
 export async function health(): Promise<{ status: string; db: string; redis: string }> {
   return apiFetch('/health');
 }
+
+
+// ─── Shortlist (watchlist) ───────────────────────────────────────────────
+
+export interface ShortlistItem {
+  ticker: string;
+  company_name: string;
+  date_added?: string;
+  initial_price?: number;
+  catalyst_type?: string;
+  catalyst_date?: string;
+  initial_probability?: number;
+  initial_score?: number;
+  notes?: string;
+}
+
+export interface ShortlistResponse {
+  count: number;
+  items: ShortlistItem[];
+}
+
+export async function getShortlist(): Promise<ShortlistResponse> {
+  return apiFetch('/shortlist');
+}
+
+export async function addToShortlist(payload: {
+  ticker: string;
+  company_name?: string;
+  initial_price?: number;
+  catalyst_type?: string;
+  catalyst_date?: string;
+  initial_probability?: number;
+  initial_score?: number;
+  notes?: string;
+}): Promise<{ ticker: string; added: boolean }> {
+  return apiFetch('/shortlist', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function removeFromShortlist(ticker: string): Promise<{ ticker: string; removed: boolean }> {
+  return apiFetch(`/shortlist/${encodeURIComponent(ticker)}`, { method: 'DELETE' });
+}
+
+export async function checkShortlist(ticker: string): Promise<{ ticker: string; shortlisted: boolean }> {
+  return apiFetch(`/shortlist/${encodeURIComponent(ticker)}/check`);
+}
