@@ -23,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/" className="text-neutral-400 hover:text-neutral-100 transition">Screener</Link>
                 <Link href="/watchlist" className="text-neutral-400 hover:text-neutral-100 transition">Watchlist</Link>
                 <Link href="/analytics" className="text-neutral-400 hover:text-neutral-100 transition">Analytics</Link>
+                <Link href="/weights" className="text-neutral-400 hover:text-neutral-100 transition">Weights</Link>
               </nav>
             </div>
           </header>
