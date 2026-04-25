@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Brain, Loader2, AlertCircle } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import { startConsensus, getJob, type StockDetail, type NPVFull, type NewsArticle, type JobStatus } from '@/lib/api';
 
 interface Props {
@@ -120,7 +122,7 @@ export function AIConsensusPanel({ ticker, companyName, catalyst, npv, news }: P
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Brain className="h-5 w-5 text-purple-400" />
-          <h3 className="text-lg">AI Investment Analysis</h3>
+          <h3 className="text-lg">AI Investment Analysis <InfoTooltip text={HELP.stockDetail.ai_consensus} position="bottom" /></h3>
         </div>
         {phase === 'idle' && (
           <button
