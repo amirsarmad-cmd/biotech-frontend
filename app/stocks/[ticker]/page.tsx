@@ -20,6 +20,8 @@ import { FundamentalsPanel } from '@/components/FundamentalsPanel';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
 import { AIConsensusPanel } from '@/components/AIConsensusPanel';
 import { StrategyPanel } from '@/components/StrategyPanel';
+import { NewsImpactPanel } from '@/components/NewsImpactPanel';
+import { WatchlistButton } from '@/components/WatchlistButton';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -76,9 +78,20 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
 
   return (
     <div className="space-y-6">
-      <Link href="/" className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-100">
-        <ArrowLeft className="h-4 w-4" /> Back to screener
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm text-neutral-400 hover:text-neutral-100">
+          <ArrowLeft className="h-4 w-4" /> Back to screener
+        </Link>
+        {stock && (
+          <WatchlistButton
+            ticker={TICKER}
+            companyName={stock.company_name}
+            currentPrice={stock.current_price}
+            catalyst={stock.primary_catalyst}
+            overallScore={stock.scores.overall}
+          />
+        )}
+      </div>
 
       {stockQ.isLoading && <div className="h-64 animate-pulse rounded-lg border border-border bg-panel" />}
       {stockQ.error && (
@@ -269,6 +282,19 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             npv={npv}
             news={newsQ.data?.articles}
           />
+
+          {/* Section 2C: News × NPV impact */}
+          {npv && stock.current_price && (
+            <NewsImpactPanel
+              ticker={TICKER}
+              companyName={stock.company_name}
+              currentPrice={stock.current_price}
+              marketCapM={stock.market_cap_m}
+              npv={npv}
+              catalyst={stock.npv_catalyst || stock.primary_catalyst}
+              news={newsQ.data?.articles}
+            />
+          )}
 
           {/* News */}
           <NewsPanel data={newsQ.data} loading={newsQ.isLoading} />
