@@ -298,11 +298,15 @@ export interface ShortlistItem {
   company_name: string;
   date_added?: string;
   initial_price?: number;
-  catalyst_type?: string;
-  catalyst_date?: string;
-  initial_probability?: number;
   initial_score?: number;
   notes?: string;
+  // Enriched fields from stocks universe (current snapshot)
+  catalyst_type?: string;
+  catalyst_date?: string;
+  current_probability?: number;
+  current_score?: number;
+  market_cap?: number;
+  industry?: string;
 }
 
 export interface ShortlistResponse {
