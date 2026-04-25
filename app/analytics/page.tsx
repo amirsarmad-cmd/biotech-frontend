@@ -3,6 +3,8 @@
 import { useQuery } from '@tanstack/react-query';
 import Link from 'next/link';
 import { TrendingUp, Calendar, Activity, BarChart3 } from 'lucide-react';
+import { InfoTooltip, LabelWithHelp } from '@/components/tooltips';
+import { HELP } from '@/lib/help-text';
 import { listStocks } from '@/lib/api';
 import { catalystColor, probColor, formatMarketCap, daysUntil } from '@/lib/utils';
 
@@ -78,10 +80,10 @@ export default function AnalyticsPage() {
 
       {/* Top stats row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <Stat label="Total catalysts" value={q.data.universe_size} />
-        <Stat label="High probability" value={q.data.high_prob_count} suffix={`/ ${q.data.universe_size}`} accent="emerald" />
-        <Stat label="Avg probability" value={`${(avgProb * 100).toFixed(0)}%`} />
-        <Stat label="Total market cap" value={`$${(totalMcap / 1000).toFixed(1)}T`} />
+        <Stat label="Total catalysts" value={q.data.universe_size} help={HELP.analytics.total_catalysts} />
+        <Stat label="High probability" value={q.data.high_prob_count} suffix={`/ ${q.data.universe_size}`} accent="emerald" help={HELP.analytics.high_probability} />
+        <Stat label="Avg probability" value={`${(avgProb * 100).toFixed(0)}%`} help={HELP.analytics.avg_probability} />
+        <Stat label="Total market cap" value={`$${(totalMcap / 1000).toFixed(1)}T`} help={HELP.analytics.total_market_cap} />
       </div>
 
       {/* Imminent catalysts */}
@@ -192,11 +194,11 @@ export default function AnalyticsPage() {
   );
 }
 
-function Stat({ label, value, suffix, accent = 'neutral' }: { label: string; value: string | number; suffix?: string; accent?: 'emerald' | 'neutral' }) {
+function Stat({ label, value, suffix, accent = 'neutral', help }: { label: string; value: string | number; suffix?: string; accent?: 'emerald' | 'neutral'; help?: string }) {
   const cls = accent === 'emerald' ? 'text-emerald-400' : 'text-neutral-100';
   return (
     <div className="rounded-md border border-border bg-panel p-4">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-neutral-500">{label}{help && <InfoTooltip text={help} position="bottom" />}</div>
       <div className={`mt-1 text-2xl font-semibold ${cls}`}>
         {value}{suffix && <span className="text-sm text-neutral-500 ml-1">{suffix}</span>}
       </div>
