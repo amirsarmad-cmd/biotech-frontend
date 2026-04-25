@@ -24,6 +24,7 @@ import { NewsImpactPanel } from '@/components/NewsImpactPanel';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { LoadingStatus, useQueryAction } from '@/components/LoadingStatus';
 import { InvestmentCalculator } from '@/components/InvestmentCalculator';
+import { CatalystTimeline } from '@/components/CatalystTimeline';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -255,6 +256,17 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               <StockImpactPanel npv={npv} />
               <ProbabilityMathPanel npv={npv} />
             </div>
+          )}
+
+          {/* Catalyst Timeline (#7) — multi-catalyst NPV table */}
+          {stock.all_catalysts && stock.all_catalysts.length > 0 && (
+            <CatalystTimeline
+              ticker={TICKER}
+              catalysts={stock.all_catalysts}
+              marketCapM={stock.market_cap_m}
+              primaryNpvB={npv?.drug_npv_m ? npv.drug_npv_m / 1000 : null}
+              primaryProbApproval={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+            />
           )}
 
           {/* Section 2B: Risk Factors */}
