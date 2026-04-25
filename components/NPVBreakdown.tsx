@@ -170,7 +170,7 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
           {riskDiscount != null && riskDiscount > 0 && (
             <div className="mt-4 rounded-md border border-warning/30 bg-warning/5 p-3 text-sm">
               <span className="text-amber-400 font-medium">Risk discount applied: </span>
-              <span className="text-amber-200">{(riskDiscount * 100).toFixed(0)}%</span>
+              <span className="text-amber-200">{riskDiscount.toFixed(1)}%</span>
               <span className="ml-2 text-xs text-amber-400/60">
                 (adverse factors reduce drug NPV)
               </span>
