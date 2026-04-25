@@ -366,6 +366,101 @@ export async function analyzeNpv(payload: {
   });
 }
 
+// ---- Phase 3B: LLM usage / budgets ----------------------------------------
+export interface LlmUsageHeadline {
+  today_global_usd: number;
+  month_global_usd: number;
+  by_provider_today: Record<string, number>;
+  by_provider_month: Record<string, number>;
+}
+
+export interface LlmUsageSummaryRow {
+  day?: string;
+  provider?: string;
+  feature?: string;
+  calls: number;
+  cost_usd: number;
+  tokens_in?: number;
+  tokens_out?: number;
+  errors?: number;
+}
+
+export interface LlmUsageSummary {
+  since: string;
+  days: number;
+  group_by: string;
+  totals: { calls: number; cost_usd: number; tokens_in: number; tokens_out: number };
+  today_spend_usd: number;
+  month_spend_usd: number;
+  rows: LlmUsageSummaryRow[];
+}
+
+export interface LlmUsageRow {
+  id: number;
+  ts: string;
+  provider: string;
+  model?: string;
+  feature?: string;
+  ticker?: string;
+  tokens_input?: number;
+  tokens_output?: number;
+  cost_usd?: number;
+  duration_ms?: number;
+  status: string;
+  error_message?: string;
+  request_id?: string;
+}
+
+export interface LlmBudget {
+  id: number;
+  scope_type: 'global' | 'provider' | 'feature' | 'provider_feature' | string;
+  scope_value: string;
+  daily_limit_usd?: number | null;
+  monthly_limit_usd?: number | null;
+  hard_cutoff: boolean;
+  alert_at_pct?: number;
+  enabled: boolean;
+  notes?: string;
+  updated_at?: string;
+}
+
+export async function getLlmUsageHeadline(): Promise<LlmUsageHeadline> {
+  return apiFetch('/admin/llm/usage/headline');
+}
+export async function getLlmUsageSummary(days: number, group_by: 'day' | 'provider' | 'feature' | 'day_provider'): Promise<LlmUsageSummary> {
+  return apiFetch(`/admin/llm/usage/summary?days=${days}&group_by=${group_by}`);
+}
+export async function getLlmRecentUsage(opts: { limit?: number; provider?: string; feature?: string; ticker?: string } = {}): Promise<{ count: number; rows: LlmUsageRow[] }> {
+  const params = new URLSearchParams();
+  params.set('limit', String(opts.limit ?? 50));
+  if (opts.provider) params.set('provider', opts.provider);
+  if (opts.feature) params.set('feature', opts.feature);
+  if (opts.ticker) params.set('ticker', opts.ticker);
+  return apiFetch(`/admin/llm/usage/recent?${params.toString()}`);
+}
+export async function getLlmBudgets(): Promise<{ budgets: LlmBudget[] }> {
+  return apiFetch('/admin/llm/budgets');
+}
+export async function setLlmBudget(payload: {
+  scope_type: string;
+  scope_value: string;
+  daily_limit_usd?: number | null;
+  monthly_limit_usd?: number | null;
+  hard_cutoff?: boolean;
+  alert_at_pct?: number;
+  enabled?: boolean;
+  notes?: string;
+}): Promise<{ id: number; ok: boolean }> {
+  return apiFetch('/admin/llm/budgets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+export async function deleteLlmBudget(id: number): Promise<{ ok: boolean }> {
+  return apiFetch(`/admin/llm/budgets/${id}`, { method: 'DELETE' });
+}
+
 export async function health(): Promise<{ status: string; db: string; redis: string }> {
   return apiFetch('/health');
 }
