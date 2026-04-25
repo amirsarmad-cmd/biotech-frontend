@@ -22,6 +22,7 @@ import { AIConsensusPanel } from '@/components/AIConsensusPanel';
 import { StrategyPanel } from '@/components/StrategyPanel';
 import { NewsImpactPanel } from '@/components/NewsImpactPanel';
 import { WatchlistButton } from '@/components/WatchlistButton';
+import { LoadingStatus, useQueryAction } from '@/components/LoadingStatus';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -70,6 +71,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
     staleTime: 10 * 60_000,
   });
 
+  // Loading status — exposes per-request progress to the UI
+  const stockAction = useQueryAction({ key: 'stock', label: 'Stock detail + NPV', query: stockQ });
+  const fundAction = useQueryAction({ key: 'fund', label: 'Fundamentals (cash, runway, debt)', query: fundQ });
+  const histAction = useQueryAction({ key: 'hist', label: 'Price history', query: histQ });
+  const newsAction = useQueryAction({ key: 'news', label: 'News articles', query: newsQ });
+  const analystAction = useQueryAction({ key: 'analyst', label: 'Analyst ratings', query: analystQ });
+  const socialAction = useQueryAction({ key: 'social', label: 'Social sentiment', query: socialQ });
+
   const stock = stockQ.data;
   const npvRaw = stock?.npv;
   const npv: NPVFull | null = (npvRaw && typeof npvRaw === 'object' && !('status' in npvRaw) && !('error' in npvRaw))
@@ -92,6 +101,11 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
           />
         )}
       </div>
+
+      {/* Per-action loading status */}
+      <LoadingStatus
+        actions={[stockAction, fundAction, histAction, newsAction, analystAction, socialAction]}
+      />
 
       {stockQ.isLoading && <div className="h-64 animate-pulse rounded-lg border border-border bg-panel" />}
       {stockQ.error && (
