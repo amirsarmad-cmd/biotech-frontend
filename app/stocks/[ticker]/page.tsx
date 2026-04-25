@@ -28,6 +28,7 @@ import { CatalystTimeline } from '@/components/CatalystTimeline';
 import { NPVSlidersPanel } from '@/components/NPVSlidersPanel';
 import { CatalystRiskPanel } from '@/components/CatalystRiskPanel';
 import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
+import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -272,6 +273,9 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             marketCapM={stock.market_cap_m}
             npvCatalyst={stock.npv_catalyst}
           />
+
+          {/* Section 1C: Post-Catalyst History — predicted vs actual learning loop */}
+          <PostCatalystHistoryPanel ticker={TICKER} />
 
           {/* Section 2 + 3 side by side */}
           {npv && (
