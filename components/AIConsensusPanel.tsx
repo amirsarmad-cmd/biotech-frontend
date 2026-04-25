@@ -82,6 +82,38 @@ export function AIConsensusPanel({ ticker, companyName, catalyst, npv, news }: P
     return () => { cancelled = true; };
   }, [jobId, phase]);
 
+  // Auto-fire on mount with 24h sessionStorage cache by (ticker, catalyst_date)
+  useEffect(() => {
+    if (phase !== 'idle') return;
+    const cacheKey = `ai-consensus:${ticker}:${catalyst?.date || 'none'}`;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        const ageMs = Date.now() - (cached.cachedAt || 0);
+        const TTL_MS = 24 * 3600 * 1000;
+        if (ageMs < TTL_MS && cached.result) {
+          setResult(cached.result as ConsensusResult);
+          setPhase('completed');
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    // No cache hit → auto-start
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker, catalyst?.date]);
+
+  // Cache result when consensus completes
+  useEffect(() => {
+    if (phase === 'completed' && result) {
+      const cacheKey = `ai-consensus:${ticker}:${catalyst?.date || 'none'}`;
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ result, cachedAt: Date.now() }));
+      } catch { /* quota exceeded, ignore */ }
+    }
+  }, [phase, result, ticker, catalyst?.date]);
+
   const start = async () => {
     setError(null);
     setResult(null);
