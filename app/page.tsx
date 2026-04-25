@@ -8,21 +8,65 @@ import { formatMarketCap, formatDate, daysUntil, catalystColor, probColor } from
 import { InfoTooltip, LabelWithHelp } from '@/components/tooltips';
 import { HELP } from '@/lib/help-text';
 
-type SortKey = 'overall_score' | 'probability' | 'market_cap' | 'ticker';
+type SortKey = 'overall_score' | 'short_score' | 'probability' | 'market_cap' | 'ticker';
+type Mode = 'long' | 'short' | 'all';
 
 export default function HomePage() {
   const [highProbOnly, setHighProbOnly] = useState(false);
   const [sort, setSort] = useState<SortKey>('overall_score');
   const [search, setSearch] = useState('');
+  const [mode, setMode] = useState<Mode>('all');
 
   const { data, isLoading, error } = useQuery({
     queryKey: ['stocks', highProbOnly, sort],
     queryFn: () => listStocks({ high_prob_only: highProbOnly, sort, limit: 500 }),
   });
 
-  const stocks = (data?.stocks || []).filter(s =>
+  // Compute short_score for each stock: high when catalyst is risky (low prob FDA/Phase 3) and stock is small
+  const computeShortScore = (s: Stock): number => {
+    const probFailure = 1 - s.probability;
+    const catalystWeight = (() => {
+      const t = s.catalyst_type.toLowerCase();
+      if (t.includes('fda') || t.includes('pdufa') || t.includes('decision')) return 1.0;
+      if (t.includes('phase 3') || t.includes('phase iii')) return 0.9;
+      if (t.includes('phase 2')) return 0.6;
+      if (t.includes('adcomm')) return 0.7;
+      if (t.includes('phase 1')) return 0.3;
+      if (t.includes('partnership') || t.includes('earnings')) return 0.2;
+      return 0.5;
+    })();
+    // Smaller market cap → higher short score (more downside on failure, easier to short)
+    const sizePenalty = (() => {
+      if (s.market_cap >= 50_000) return 0.4;  // mega cap, hard to short
+      if (s.market_cap >= 10_000) return 0.7;
+      if (s.market_cap >= 2_000) return 0.9;
+      return 1.0;  // small cap
+    })();
+    return Math.min(1.0, probFailure * catalystWeight * sizePenalty);
+  };
+
+  const allStocksWithShort = (data?.stocks || []).map(s => ({
+    ...s,
+    short_score: computeShortScore(s),
+  }));
+
+  // Apply mode filter
+  let stocks = allStocksWithShort;
+  if (mode === 'long') {
+    stocks = stocks.filter(s => s.probability >= 0.5);
+  } else if (mode === 'short') {
+    stocks = stocks.filter(s => s.short_score >= 0.4);
+  }
+
+  // Apply search filter
+  stocks = stocks.filter(s =>
     !search || s.ticker.includes(search.toUpperCase()) || s.company_name.toLowerCase().includes(search.toLowerCase())
   );
+
+  // Apply sort by short_score if selected
+  if (sort === 'short_score') {
+    stocks = [...stocks].sort((a, b) => b.short_score - a.short_score);
+  }
 
   return (
     <div className="space-y-6">
@@ -32,6 +76,32 @@ export default function HomePage() {
         <Stat label="Showing" value={stocks.length} help={HELP.screener.showing} />
         <Stat label="High Probability" value={data?.high_prob_count ?? '—'} accent help={HELP.screener.high_probability} />
         <Stat label="Source" value="Live · Postgres" dim help={HELP.screener.source} />
+      </div>
+
+      {/* Mode toggle */}
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-panel p-3">
+        <span className="text-xs uppercase tracking-wide text-neutral-500">Mode</span>
+        <div className="flex gap-1">
+          {(['long','short','all'] as const).map(m => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+                mode === m
+                  ? (m === 'long' ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30' :
+                     m === 'short' ? 'bg-red-500/15 text-red-300 border border-red-500/30' :
+                     'bg-neutral-700/30 text-neutral-200 border border-neutral-600/30')
+                  : 'bg-bg/50 text-neutral-400 border border-border hover:text-neutral-200'
+              }`}
+            >
+              {m === 'long' ? '⬆ Long bias' : m === 'short' ? '⬇ Short bias' : 'All'}
+            </button>
+          ))}
+        </div>
+        <InfoTooltip
+          text="Long bias: catalysts with ≥50% probability. Short bias: high-conviction failure setups (low prob × high-impact catalyst × smaller cap = more shortable). All: every catalyst."
+          position="bottom"
+        />
       </div>
 
       {/* Controls */}
@@ -59,6 +129,7 @@ export default function HomePage() {
             className="rounded-md border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:outline-none"
           >
             <option value="overall_score">Sort: overall score</option>
+            <option value="short_score">Sort: short score</option>
             <option value="probability">Sort: probability</option>
             <option value="market_cap">Sort: market cap</option>
             <option value="ticker">Sort: ticker</option>
@@ -99,15 +170,20 @@ export default function HomePage() {
                 <th className="px-4 py-3 text-right">
                   <LabelWithHelp label="Score" help={HELP.screener.overall_score} />
                 </th>
+                {mode !== 'long' && (
+                  <th className="px-4 py-3 text-right">
+                    <LabelWithHelp label="Short" help="Short score 0-1: higher = better short setup. Computed from (1-probability) × catalyst weight × size penalty. >0.4 = decent short candidate." />
+                  </th>
+                )}
                 <th className="px-4 py-3 text-right">Mkt Cap</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border bg-bg">
               {stocks.map((s, i) => (
-                <StockRow key={`${s.ticker}-${s.catalyst_type}-${s.catalyst_date}-${i}`} stock={s} />
+                <StockRow key={`${s.ticker}-${s.catalyst_type}-${s.catalyst_date}-${i}`} stock={s} mode={mode} />
               ))}
               {stocks.length === 0 && (
-                <tr><td colSpan={7} className="px-4 py-12 text-center text-neutral-500">No stocks match your filters</td></tr>
+                <tr><td colSpan={mode !== 'long' ? 8 : 7} className="px-4 py-12 text-center text-neutral-500">No stocks match your filters</td></tr>
               )}
             </tbody>
           </table>
@@ -131,8 +207,9 @@ function Stat({ label, value, accent, dim, help }: { label: string; value: React
   );
 }
 
-function StockRow({ stock }: { stock: Stock }) {
+function StockRow({ stock, mode }: { stock: Stock & { short_score: number }; mode: Mode }) {
   const d = daysUntil(stock.catalyst_date);
+  const shortColor = stock.short_score >= 0.6 ? 'text-red-300' : stock.short_score >= 0.4 ? 'text-amber-300' : 'text-neutral-500';
   return (
     <tr className="transition hover:bg-panel/50">
       <td className="px-4 py-3">
@@ -150,6 +227,11 @@ function StockRow({ stock }: { stock: Stock }) {
         {(stock.probability * 100).toFixed(0)}%
       </td>
       <td className="px-4 py-3 text-right text-sm font-mono text-neutral-300">{(stock.overall_score).toFixed(2)}</td>
+      {mode !== 'long' && (
+        <td className={`px-4 py-3 text-right text-sm font-mono ${shortColor}`}>
+          {stock.short_score.toFixed(2)}
+        </td>
+      )}
       <td className="px-4 py-3 text-right text-sm font-mono text-neutral-400">{formatMarketCap(stock.market_cap)}</td>
     </tr>
   );
