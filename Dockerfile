@@ -2,6 +2,7 @@
 # Multi-stage build: deps → builder → runner (standalone output)
 
 FROM node:20-alpine AS deps
+LABEL BUILD_TS_BUST=1777152724
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
