@@ -17,9 +17,11 @@ export default function HomePage() {
   const [search, setSearch] = useState('');
   const [mode, setMode] = useState<Mode>('all');
 
+  // API only knows non-short-score sorts. short_score is frontend-only; use overall_score for fetch.
+  const apiSort = sort === 'short_score' ? 'overall_score' : sort;
   const { data, isLoading, error } = useQuery({
-    queryKey: ['stocks', highProbOnly, sort],
-    queryFn: () => listStocks({ high_prob_only: highProbOnly, sort, limit: 500 }),
+    queryKey: ['stocks', highProbOnly, apiSort],
+    queryFn: () => listStocks({ high_prob_only: highProbOnly, sort: apiSort, limit: 500 }),
   });
 
   // Compute short_score for each stock: high when catalyst is risky (low prob FDA/Phase 3) and stock is small
