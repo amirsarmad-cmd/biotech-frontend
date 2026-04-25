@@ -26,6 +26,7 @@ import { LoadingStatus, useQueryAction } from '@/components/LoadingStatus';
 import { InvestmentCalculator } from '@/components/InvestmentCalculator';
 import { CatalystTimeline } from '@/components/CatalystTimeline';
 import { NPVSlidersPanel } from '@/components/NPVSlidersPanel';
+import { CatalystRiskPanel } from '@/components/CatalystRiskPanel';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -76,6 +77,19 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
   const stratQ = useQuery({
     queryKey: ['strategies', TICKER],
     queryFn: () => getStrategies(TICKER) as Promise<{ options_chain?: unknown }>,
+    staleTime: 10 * 60_000,
+  });
+
+  // Lookup catalyst_id from universe table for the primary catalyst (used by Risk Factors panel)
+  const universeCatalystsQ = useQuery({
+    queryKey: ['universe-catalysts', TICKER],
+    queryFn: async (): Promise<Array<{id: number; ticker: string; catalyst_type: string; catalyst_date: string; drug_name?: string | null}>> => {
+      const url = `${process.env.NEXT_PUBLIC_API_URL || 'https://biotech-api-production-7ec4.up.railway.app'}/universe/catalysts?limit=200`;
+      const r = await fetch(url);
+      if (!r.ok) return [];
+      const d = await r.json();
+      return ((d.items || []) as Array<{ticker: string; id: number; catalyst_type: string; catalyst_date: string; drug_name?: string | null}>).filter(c => c.ticker === TICKER);
+    },
     staleTime: 10 * 60_000,
   });
 
@@ -283,6 +297,23 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               }}
             />
           )}
+
+          {/* Drug-Specific Risk Factors (#5) */}
+          {(() => {
+            const cats = universeCatalystsQ.data || [];
+            // Match primary catalyst from /stocks/ to universe catalyst_id
+            const primary = stock.npv_catalyst || stock.primary_catalyst;
+            const matched = cats.find(c =>
+              c.catalyst_type === primary.type &&
+              c.catalyst_date === primary.date
+            ) || cats[0];
+            return matched ? (
+              <CatalystRiskPanel
+                catalystId={matched.id}
+                drugName={matched.drug_name}
+              />
+            ) : null;
+          })()}
 
           {/* Section 2B: Risk Factors */}
           {npv && npv.risk_factor_breakdown && (
