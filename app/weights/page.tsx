@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { Sliders, RotateCcw, Save, Info } from 'lucide-react';
+import { InfoTooltip } from '@/components/tooltips';
+import { HELP } from '@/lib/help-text';
 
 const STORAGE_KEY = 'biotech-screener:weights';
 
@@ -61,7 +63,7 @@ export default function WeightsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="flex items-center gap-2"><Sliders className="h-6 w-6 text-purple-400" /> Rating Weights</h1>
+        <h1 className="flex items-center gap-2"><Sliders className="h-6 w-6 text-purple-400" /> Rating Weights <InfoTooltip text={HELP.weights.title} position="bottom" size="md" /></h1>
         <p className="text-sm text-neutral-500 mt-1">
           Adjust the weighted scoring factors used to compute the overall stock rating. Saved locally in your browser.
         </p>
@@ -126,13 +128,16 @@ export default function WeightsPage() {
               )}
             </div>
             <div className="flex gap-2">
-              <button
-                onClick={handleNormalize}
-                disabled={isBalanced || total === 0}
-                className="rounded-md border border-border bg-bg/50 px-3 py-1.5 text-sm text-neutral-300 hover:border-emerald-500/40 hover:text-emerald-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Normalize to 1.00
-              </button>
+              <span className="inline-flex items-center gap-1">
+                <button
+                  onClick={handleNormalize}
+                  disabled={isBalanced || total === 0}
+                  className="rounded-md border border-border bg-bg/50 px-3 py-1.5 text-sm text-neutral-300 hover:border-emerald-500/40 hover:text-emerald-300 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Normalize to 1.00
+                </button>
+                <InfoTooltip text={HELP.weights.normalize} position="top" />
+              </span>
               <button
                 onClick={handleReset}
                 className="inline-flex items-center gap-1 rounded-md border border-border bg-bg/50 px-3 py-1.5 text-sm text-neutral-300 hover:text-neutral-100 transition"
