@@ -79,8 +79,11 @@ export default function WatchlistPage() {
                       <span className="ml-2 text-xs text-neutral-600">({daysUntil(s.catalyst_date)}d)</span>
                     )}
                   </td>
-                  <td className={`px-3 py-2 text-right font-mono ${probColor(s.initial_probability ?? 0)}`}>
-                    {s.initial_probability != null ? `${(s.initial_probability * 100).toFixed(0)}%` : '—'}
+                  <td className={`px-3 py-2 text-right font-mono ${probColor(s.current_probability ?? s.initial_probability ?? 0)}`}>
+                    {(() => {
+                      const p = s.current_probability ?? s.initial_probability;
+                      return p != null ? `${(p * 100).toFixed(0)}%` : '—';
+                    })()}
                   </td>
                   <td className="px-3 py-2 text-right font-mono text-neutral-400">
                     {s.initial_price ? `$${s.initial_price.toFixed(2)}` : '—'}
