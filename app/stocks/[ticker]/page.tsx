@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import {
   getStockDetail, getStockNews, getStockAnalyst, getStockSocial,
-  getFundamentals, getHistory,
+  getFundamentals, getHistory, getStrategies,
   type StockDetail, type NPVFull,
 } from '@/lib/api';
 import { formatCurrency, formatMarketCap, formatDate, daysUntil, catalystColor, probColor, formatPercent } from '@/lib/utils';
@@ -23,6 +23,7 @@ import { StrategyPanel } from '@/components/StrategyPanel';
 import { NewsImpactPanel } from '@/components/NewsImpactPanel';
 import { WatchlistButton } from '@/components/WatchlistButton';
 import { LoadingStatus, useQueryAction } from '@/components/LoadingStatus';
+import { InvestmentCalculator } from '@/components/InvestmentCalculator';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -70,6 +71,11 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
     queryFn: () => getHistory(TICKER, period),
     staleTime: 10 * 60_000,
   });
+  const stratQ = useQuery({
+    queryKey: ['strategies', TICKER],
+    queryFn: () => getStrategies(TICKER) as Promise<{ options_chain?: unknown }>,
+    staleTime: 10 * 60_000,
+  });
 
   // Loading status — exposes per-request progress to the UI
   const stockAction = useQueryAction({ key: 'stock', label: 'Stock detail + NPV', query: stockQ });
@@ -78,6 +84,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
   const newsAction = useQueryAction({ key: 'news', label: 'News articles', query: newsQ });
   const analystAction = useQueryAction({ key: 'analyst', label: 'Analyst ratings', query: analystQ });
   const socialAction = useQueryAction({ key: 'social', label: 'Social sentiment', query: socialQ });
+  const stratAction = useQueryAction({ key: 'strat', label: 'Options chain + technicals', query: stratQ });
 
   const stock = stockQ.data;
   const npvRaw = stock?.npv;
@@ -104,7 +111,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
 
       {/* Per-action loading status */}
       <LoadingStatus
-        actions={[stockAction, fundAction, histAction, newsAction, analystAction, socialAction]}
+        actions={[stockAction, fundAction, histAction, newsAction, analystAction, socialAction, stratAction]}
       />
 
       {stockQ.isLoading && <div className="h-64 animate-pulse rounded-lg border border-border bg-panel" />}
@@ -286,6 +293,16 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
               return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
             })()}
+          />
+
+          {/* Investment Calculator (#8) */}
+          <InvestmentCalculator
+            ticker={TICKER}
+            currentPrice={stock.current_price}
+            probApproval={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+            upPct={npv?.upside_pct ?? null}
+            downPct={npv?.downside_pct ?? null}
+            optionsData={(stratQ.data as { options_chain?: { available?: boolean; expiry?: string | null; days_to_expiry?: number; calls?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; puts?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; atm_iv?: number } } | undefined)?.options_chain ?? null}
           />
 
           {/* AI 3-model consensus */}
