@@ -2,15 +2,17 @@
 # Multi-stage build: deps → builder → runner (standalone output)
 
 FROM node:20-alpine AS deps
-LABEL BUILD_TS_BUST=1777152724
 WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm install --no-audit --no-fund
 
 FROM node:20-alpine AS builder
+LABEL BUILD_TS_BUST=1777152800
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
+# Force fresh Next.js build (clear any stale .next cache)
+RUN rm -rf .next
 ARG NEXT_PUBLIC_API_URL=https://biotech-api-production-7ec4.up.railway.app
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
