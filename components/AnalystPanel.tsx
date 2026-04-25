@@ -1,6 +1,8 @@
 'use client';
 
 import { TrendingUp } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import type { AnalystData } from '@/lib/api';
 
 type AnalystSource = {
@@ -30,7 +32,7 @@ export function AnalystPanel({ data, loading }: { data?: AnalystData; loading: b
   if (loading) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-3">Analyst Consensus</h2>
+        <h2 className="mb-3">Analyst Consensus <InfoTooltip text={HELP.stockDetail.analyst} position="bottom" /></h2>
         <div className="h-40 animate-pulse rounded-md border border-border bg-bg/50" />
       </div>
     );
@@ -47,7 +49,7 @@ export function AnalystPanel({ data, loading }: { data?: AnalystData; loading: b
   if (!primary || (!primary.consensus && primary.target_mean == null)) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-3">Analyst Consensus</h2>
+        <h2 className="mb-3">Analyst Consensus <InfoTooltip text={HELP.stockDetail.analyst} position="bottom" /></h2>
         <p className="text-sm text-neutral-500">No analyst data available.</p>
       </div>
     );
@@ -67,7 +69,7 @@ export function AnalystPanel({ data, loading }: { data?: AnalystData; loading: b
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2>Analyst Consensus</h2>
+        <h2>Analyst Consensus <InfoTooltip text={HELP.stockDetail.analyst} position="bottom" /></h2>
         {primary.analyst_count != null && (
           <span className="text-xs text-neutral-500">{primary.analyst_count} analysts</span>
         )}
