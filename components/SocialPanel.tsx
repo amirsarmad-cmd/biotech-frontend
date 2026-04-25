@@ -1,5 +1,8 @@
 'use client';
 
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
+
 import type { SocialData } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
@@ -27,7 +30,7 @@ export function SocialPanel({ data, loading }: { data?: SocialData; loading: boo
   if (loading) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-3">Social Sentiment</h2>
+        <h2 className="mb-3">Social Sentiment <InfoTooltip text={HELP.stockDetail.social} position="bottom" /></h2>
         <div className="h-40 animate-pulse rounded-md border border-border bg-bg/50" />
       </div>
     );
@@ -44,7 +47,7 @@ export function SocialPanel({ data, loading }: { data?: SocialData; loading: boo
   if (!hasData || data?.error) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-3">Social Sentiment</h2>
+        <h2 className="mb-3">Social Sentiment <InfoTooltip text={HELP.stockDetail.social} position="bottom" /></h2>
         <p className="text-sm text-neutral-500">
           {data?.error ? data.error.slice(0, 120) : 'No social data available.'}
         </p>
@@ -75,7 +78,7 @@ export function SocialPanel({ data, loading }: { data?: SocialData; loading: boo
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h2>Social Sentiment</h2>
+        <h2>Social Sentiment <InfoTooltip text={HELP.stockDetail.social} position="bottom" /></h2>
         {d.total_mentions != null && (
           <span className="text-xs text-neutral-500">{d.total_mentions} mentions</span>
         )}
