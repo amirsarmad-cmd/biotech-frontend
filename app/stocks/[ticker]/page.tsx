@@ -25,6 +25,7 @@ import { WatchlistButton } from '@/components/WatchlistButton';
 import { LoadingStatus, useQueryAction } from '@/components/LoadingStatus';
 import { InvestmentCalculator } from '@/components/InvestmentCalculator';
 import { CatalystTimeline } from '@/components/CatalystTimeline';
+import { NPVSlidersPanel } from '@/components/NPVSlidersPanel';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -266,6 +267,20 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               marketCapM={stock.market_cap_m}
               primaryNpvB={npv?.drug_npv_m ? npv.drug_npv_m / 1000 : null}
               primaryProbApproval={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+            />
+          )}
+
+          {/* NPV Sliders (#6) — live NPV calculator with adjustable economics */}
+          {npv && (
+            <NPVSlidersPanel
+              ticker={TICKER}
+              drugName={stock.npv_catalyst?.description?.slice(0, 40) ?? null}
+              initial={{
+                peakSalesB: npv.peak_sales_b,
+                pApproval: npv.p_approval,
+                pCommercial: npv.p_commercial,
+                marketCapM: stock.market_cap_m,
+              }}
             />
           )}
 
