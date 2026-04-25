@@ -3,6 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import { Trash2, Star } from 'lucide-react';
+import { InfoTooltip } from '@/components/tooltips';
+import { HELP } from '@/lib/help-text';
 import { getShortlist, removeFromShortlist, type ShortlistItem } from '@/lib/api';
 import { formatDate, daysUntil, catalystColor, probColor } from '@/lib/utils';
 
@@ -22,7 +24,7 @@ export default function WatchlistPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="flex items-center gap-2"><Star className="h-6 w-6 text-amber-400" /> Watchlist</h1>
+        <h1 className="flex items-center gap-2"><Star className="h-6 w-6 text-amber-400" /> Watchlist <InfoTooltip text={HELP.watchlist.title} position="bottom" size="md" /></h1>
         {q.data && (
           <span className="text-sm text-neutral-500">{q.data.count} ticker{q.data.count === 1 ? '' : 's'}</span>
         )}
@@ -56,7 +58,7 @@ export default function WatchlistPage() {
                 <th className="px-3 py-2">Catalyst</th>
                 <th className="px-3 py-2">Date</th>
                 <th className="px-3 py-2 text-right">Prob</th>
-                <th className="px-3 py-2 text-right">Initial price</th>
+                <th className="px-3 py-2 text-right"><span className="inline-flex items-center gap-1 justify-end">Initial price<InfoTooltip text={HELP.watchlist.initial_price} position="bottom" /></span></th>
                 <th className="px-3 py-2">Added</th>
                 <th className="px-3 py-2"></th>
               </tr>
