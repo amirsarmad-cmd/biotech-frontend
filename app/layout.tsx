@@ -22,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <nav className="flex items-center gap-6 text-sm">
                 <Link href="/" className="text-neutral-400 hover:text-neutral-100 transition">Screener</Link>
                 <Link href="/watchlist" className="text-neutral-400 hover:text-neutral-100 transition">Watchlist</Link>
+                <Link href="/analytics" className="text-neutral-400 hover:text-neutral-100 transition">Analytics</Link>
               </nav>
             </div>
           </header>
