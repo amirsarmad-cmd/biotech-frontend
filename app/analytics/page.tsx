@@ -26,14 +26,20 @@ export default function AnalyticsPage() {
 
   const stocks = q.data.stocks;
 
-  // Top 10 by overall score
-  const top10 = [...stocks].sort((a, b) => (b.overall_score || 0) - (a.overall_score || 0)).slice(0, 10);
+  // Dedupe by ticker — keep best entry per ticker
+  const dedupeBy = (arr: typeof stocks, key: 'overall_score' | 'probability') => {
+    const seen = new Map<string, typeof stocks[number]>();
+    [...arr].sort((a, b) => (b[key] || 0) - (a[key] || 0)).forEach((s) => {
+      if (!seen.has(s.ticker)) seen.set(s.ticker, s);
+    });
+    return Array.from(seen.values());
+  };
 
-  // Top 10 highest-probability
-  const topProb = [...stocks]
-    .filter((s) => (s.probability || 0) >= 0.7)
-    .sort((a, b) => (b.probability || 0) - (a.probability || 0))
-    .slice(0, 10);
+  // Top 10 by overall score (1 per ticker)
+  const top10 = dedupeBy(stocks, 'overall_score').slice(0, 10);
+
+  // Top 10 highest-probability (1 per ticker, ≥70%)
+  const topProb = dedupeBy(stocks.filter((s) => (s.probability || 0) >= 0.7), 'probability').slice(0, 10);
 
   // Imminent (within 14 days)
   const imminent = stocks
