@@ -2,6 +2,8 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { TrendingUp, TrendingDown, Minus, Target } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import { getStrategies } from '@/lib/api';
 
 interface Props {
@@ -74,7 +76,7 @@ export function StrategyPanel({ ticker, aiProb = 0.7, daysToCatalyst = 90 }: Pro
   if (q.isLoading) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h3 className="mb-3 text-lg">Trade Strategy</h3>
+        <h3 className="mb-3 text-lg">Trade Strategy <InfoTooltip text={HELP.stockDetail.trade_strategy} position="bottom" /></h3>
         <div className="h-40 animate-pulse rounded-md border border-border bg-bg/50" />
       </div>
     );
@@ -83,7 +85,7 @@ export function StrategyPanel({ ticker, aiProb = 0.7, daysToCatalyst = 90 }: Pro
   if (q.error || !q.data) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h3 className="mb-3 text-lg">Trade Strategy</h3>
+        <h3 className="mb-3 text-lg">Trade Strategy <InfoTooltip text={HELP.stockDetail.trade_strategy} position="bottom" /></h3>
         <p className="text-sm text-neutral-500">{(q.error as Error)?.message || 'Strategy data unavailable.'}</p>
       </div>
     );
