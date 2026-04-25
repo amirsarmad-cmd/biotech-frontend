@@ -1,6 +1,8 @@
 'use client';
 
 import { ExternalLink } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import type { NewsResponse } from '@/lib/api';
 import { stripTags, formatDate } from '@/lib/utils';
 
@@ -8,7 +10,7 @@ export function NewsPanel({ data, loading }: { data?: NewsResponse; loading: boo
   if (loading) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-3">News</h2>
+        <h2 className="mb-3">News <InfoTooltip text={HELP.stockDetail.news_articles} position="bottom" /></h2>
         <div className="space-y-2">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-16 animate-pulse rounded-md border border-border bg-bg/50" />
@@ -23,7 +25,7 @@ export function NewsPanel({ data, loading }: { data?: NewsResponse; loading: boo
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
       <div className="mb-3 flex items-center justify-between">
-        <h2>News</h2>
+        <h2>News <InfoTooltip text={HELP.stockDetail.news_articles} position="bottom" /></h2>
         <span className="text-xs text-neutral-500">{articles.length} articles · last 30 days</span>
       </div>
       {articles.length === 0 ? (
