@@ -1,5 +1,8 @@
 'use client';
 
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
+
 import { useMemo, useState } from 'react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -33,7 +36,7 @@ export function PriceHistoryChart({ data, loading, catalysts, period, onPeriodCh
   if (loading) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h3 className="mb-4 text-lg">Price History</h3>
+        <h3 className="mb-4 text-lg">Price History <InfoTooltip text={HELP.stockDetail.price_history} position="bottom" /></h3>
         <div className="h-80 animate-pulse rounded-md border border-border bg-bg/50" />
       </div>
     );
@@ -73,7 +76,7 @@ export function PriceHistoryChart({ data, loading, catalysts, period, onPeriodCh
   return (
     <div className="rounded-lg border border-border bg-panel p-6">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="text-lg">Price History</h3>
+        <h3 className="text-lg">Price History <InfoTooltip text={HELP.stockDetail.price_history} position="bottom" /></h3>
         <div className="flex gap-1 rounded-md border border-border bg-bg/50 p-0.5 text-xs">
           {PERIODS.map((p) => (
             <button
