@@ -299,6 +299,7 @@ export interface ShortlistItem {
   date_added?: string;
   initial_price?: number;
   initial_score?: number;
+  initial_probability?: number;
   notes?: string;
   // Enriched fields from stocks universe (current snapshot)
   catalyst_type?: string;
