@@ -88,6 +88,9 @@ function fmtPct(v: number, decimals = 0): string {
 }
 
 export function CatalystTimeline({ ticker, catalysts, marketCapM, primaryNpvB }: Props) {
+  // FORCE_REBUILD_MARKER
+  const __buildMarker = "BUILD_VERIFY_1777153839";
+  if (typeof window !== "undefined") (window as any).__BIOTECH_BUILD = "BUILD_VERIFY_1777153839";
   const [showRef, setShowRef] = useState(true);
   const [showWeights, setShowWeights] = useState(false);
   
