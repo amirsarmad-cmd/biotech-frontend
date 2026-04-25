@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { listStocks, type Stock } from '@/lib/api';
 import { formatMarketCap, formatDate, daysUntil, catalystColor, probColor } from '@/lib/utils';
+import { InfoTooltip, LabelWithHelp } from '@/components/tooltips';
+import { HELP } from '@/lib/help-text';
 
 type SortKey = 'overall_score' | 'probability' | 'market_cap' | 'ticker';
 
@@ -26,10 +28,10 @@ export default function HomePage() {
     <div className="space-y-6">
       {/* Header stats */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-        <Stat label="Universe" value={data?.universe_size ?? '—'} />
-        <Stat label="Showing" value={stocks.length} />
-        <Stat label="High Probability" value={data?.high_prob_count ?? '—'} accent />
-        <Stat label="Source" value="Live · Postgres" dim />
+        <Stat label="Universe" value={data?.universe_size ?? '—'} help={HELP.screener.universe} />
+        <Stat label="Showing" value={stocks.length} help={HELP.screener.showing} />
+        <Stat label="High Probability" value={data?.high_prob_count ?? '—'} accent help={HELP.screener.high_probability} />
+        <Stat label="Source" value="Live · Postgres" dim help={HELP.screener.source} />
       </div>
 
       {/* Controls */}
@@ -48,17 +50,21 @@ export default function HomePage() {
             className="accent-emerald-500"
           />
           High-probability only
+          <InfoTooltip text={HELP.screener.high_prob_filter} position="bottom" />
         </label>
-        <select
-          value={sort}
-          onChange={(e) => setSort(e.target.value as SortKey)}
-          className="rounded-md border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:outline-none"
-        >
-          <option value="overall_score">Sort: overall score</option>
-          <option value="probability">Sort: probability</option>
-          <option value="market_cap">Sort: market cap</option>
-          <option value="ticker">Sort: ticker</option>
-        </select>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+            className="rounded-md border border-border bg-bg px-3 py-2 text-sm focus:border-accent focus:outline-none"
+          >
+            <option value="overall_score">Sort: overall score</option>
+            <option value="probability">Sort: probability</option>
+            <option value="market_cap">Sort: market cap</option>
+            <option value="ticker">Sort: ticker</option>
+          </select>
+          <InfoTooltip text={HELP.screener.sort} position="bottom" />
+        </div>
       </div>
 
       {/* Error */}
@@ -87,8 +93,12 @@ export default function HomePage() {
                 <th className="px-4 py-3 text-left">Company</th>
                 <th className="px-4 py-3 text-left">Catalyst</th>
                 <th className="px-4 py-3 text-left">Date</th>
-                <th className="px-4 py-3 text-right">Prob</th>
-                <th className="px-4 py-3 text-right">Score</th>
+                <th className="px-4 py-3 text-right">
+                  <LabelWithHelp label="Prob" help={HELP.screener.probability} />
+                </th>
+                <th className="px-4 py-3 text-right">
+                  <LabelWithHelp label="Score" help={HELP.screener.overall_score} />
+                </th>
                 <th className="px-4 py-3 text-right">Mkt Cap</th>
               </tr>
             </thead>
@@ -107,10 +117,13 @@ export default function HomePage() {
   );
 }
 
-function Stat({ label, value, accent, dim }: { label: string; value: React.ReactNode; accent?: boolean; dim?: boolean }) {
+function Stat({ label, value, accent, dim, help }: { label: string; value: React.ReactNode; accent?: boolean; dim?: boolean; help?: string }) {
   return (
     <div className="rounded-lg border border-border bg-panel px-4 py-3">
-      <div className="text-xs uppercase tracking-wide text-neutral-500">{label}</div>
+      <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-neutral-500">
+        {label}
+        {help && <InfoTooltip text={help} position="bottom" />}
+      </div>
       <div className={`mt-1 text-2xl font-semibold tracking-tight ${accent ? 'text-emerald-400' : dim ? 'text-neutral-400' : ''}`}>
         {value}
       </div>
