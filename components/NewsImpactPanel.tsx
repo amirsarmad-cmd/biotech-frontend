@@ -85,6 +85,37 @@ export function NewsImpactPanel({
     return () => { cancelled = true; };
   }, [jobId, phase]);
 
+  // Auto-fire on mount with 24h sessionStorage cache by (ticker, catalyst_date)
+  useEffect(() => {
+    if (phase !== 'idle') return;
+    const cacheKey = `news-impact:${ticker}:${catalyst?.date || 'none'}`;
+    try {
+      const raw = sessionStorage.getItem(cacheKey);
+      if (raw) {
+        const cached = JSON.parse(raw);
+        const ageMs = Date.now() - (cached.cachedAt || 0);
+        const TTL_MS = 24 * 3600 * 1000;
+        if (ageMs < TTL_MS && cached.result) {
+          setResult(cached.result as NewsImpactResult);
+          setPhase('completed');
+          return;
+        }
+      }
+    } catch { /* ignore */ }
+    void start();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ticker, catalyst?.date]);
+
+  // Cache result when news-impact completes
+  useEffect(() => {
+    if (phase === 'completed' && result) {
+      const cacheKey = `news-impact:${ticker}:${catalyst?.date || 'none'}`;
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ result, cachedAt: Date.now() }));
+      } catch { /* ignore */ }
+    }
+  }, [phase, result, ticker, catalyst?.date]);
+
   const start = async () => {
     if (!currentPrice || !marketCapM || !npv?.peak_sales_b || !npv?.multiple || !npv?.p_commercial) {
       setError('Cannot run news analysis without complete NPV data.');
