@@ -65,7 +65,7 @@ export function NewsImpactPanel({
         if (cancelled) return;
         if (s.status === 'running') setPhase('running');
         if (s.status === 'completed') {
-          setResult((s.result as NewsImpactResult) || null);
+          setResult(((s.result as unknown) as NewsImpactResult) || null);
           setPhase('completed');
           return;
         }
