@@ -5,6 +5,14 @@ import { Sliders, RotateCcw, Save, Info } from 'lucide-react';
 
 const STORAGE_KEY = 'biotech-screener:weights';
 
+const EXAMPLE_VALS: Record<string, number> = {
+  catalyst_probability: 0.85,
+  news_sentiment: 0.6,
+  news_activity: 0.7,
+  market_cap: 0.4,
+  days_proximity: 0.95,
+};
+
 const FACTORS = [
   { key: 'catalyst_probability', label: '🎯 Catalyst probability', defaultW: 0.35, help: 'How likely the catalyst itself is to be approved/positive' },
   { key: 'news_sentiment', label: '📰 News sentiment', defaultW: 0.15, help: 'Polarity of recent news coverage' },
@@ -150,7 +158,7 @@ export default function WeightsPage() {
         <h2 className="text-lg mb-3">Preview — example stock with these weights</h2>
         <div className="space-y-2">
           {FACTORS.map((f) => {
-            const exampleVal = { catalyst_probability: 0.85, news_sentiment: 0.6, news_activity: 0.7, market_cap: 0.4, days_proximity: 0.95 }[f.key as keyof typeof exampleVal] ?? 0.5;
+            const exampleVal = EXAMPLE_VALS[f.key] ?? 0.5;
             const w = weights[f.key] ?? f.defaultW;
             const contribution = exampleVal * w;
             return (
@@ -171,7 +179,7 @@ export default function WeightsPage() {
         <div className="mt-4 border-t border-border pt-3 text-sm font-mono">
           Overall: <strong className="text-neutral-100">
             {FACTORS.reduce((s, f) => {
-              const exampleVal = { catalyst_probability: 0.85, news_sentiment: 0.6, news_activity: 0.7, market_cap: 0.4, days_proximity: 0.95 }[f.key as keyof typeof exampleVal] ?? 0.5;
+              const exampleVal = EXAMPLE_VALS[f.key] ?? 0.5;
               return s + exampleVal * (weights[f.key] ?? f.defaultW);
             }, 0).toFixed(2)}
           </strong> / 1.00
