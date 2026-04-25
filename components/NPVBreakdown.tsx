@@ -1,6 +1,8 @@
 'use client';
 
 import { TrendingUp, TrendingDown, Info } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 import { formatCurrency, formatPercent } from '@/lib/utils';
 
 interface NPVProps {
@@ -19,7 +21,7 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
   if (data && typeof data === 'object' && 'status' in data && ((data as unknown) as { status?: string }).status === 'skipped') {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-2">NPV Analysis</h2>
+        <h2 className="mb-2">NPV Analysis <InfoTooltip text={HELP.stockDetail.npv_analysis} position="bottom" /></h2>
         <div className="rounded-md border border-neutral-700 bg-bg/50 p-4">
           <div className="flex items-start gap-2">
             <Info className="mt-0.5 h-4 w-4 shrink-0 text-neutral-500" />
@@ -35,7 +37,7 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
   if (!data || typeof data !== 'object') {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h2 className="mb-2">NPV Analysis</h2>
+        <h2 className="mb-2">NPV Analysis <InfoTooltip text={HELP.stockDetail.npv_analysis} position="bottom" /></h2>
         <p className="text-sm text-neutral-500">Not available for this catalyst.</p>
       </div>
     );
@@ -83,7 +85,7 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
     <div className="rounded-lg border border-border bg-panel p-6">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <h2>NPV Analysis</h2>
+          <h2>NPV Analysis <InfoTooltip text={HELP.stockDetail.npv_analysis} position="bottom" /></h2>
           {npvCatalyst && (
             <div className="mt-1 text-xs text-neutral-500">
               based on <span className="text-emerald-400">{npvCatalyst.type}</span>
