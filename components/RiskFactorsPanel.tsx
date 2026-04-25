@@ -1,6 +1,8 @@
 'use client';
 
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
+import { InfoTooltip } from './tooltips';
+import { HELP } from '@/lib/help-text';
 
 type RiskFactorKey =
   | 'litigation' | 'fda_history' | 'sec_short' | 'insider_sell'
@@ -27,7 +29,7 @@ export function RiskFactorsPanel({ breakdown, totalDiscountPct, rawNpvB, adjuste
   if (!breakdown) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h3 className="mb-2 text-lg">Adverse Risk Factors</h3>
+        <h3 className="mb-2 text-lg">Adverse Risk Factors <InfoTooltip text={HELP.stockDetail.section_2b_risks} position="bottom" /></h3>
         <p className="text-sm text-neutral-500">Risk factor analysis not available.</p>
       </div>
     );
@@ -38,7 +40,7 @@ export function RiskFactorsPanel({ breakdown, totalDiscountPct, rawNpvB, adjuste
   if (err) {
     return (
       <div className="rounded-lg border border-border bg-panel p-6">
-        <h3 className="mb-2 text-lg">Adverse Risk Factors</h3>
+        <h3 className="mb-2 text-lg">Adverse Risk Factors <InfoTooltip text={HELP.stockDetail.section_2b_risks} position="bottom" /></h3>
         <p className="text-sm text-amber-400/80">{err.slice(0, 200)}</p>
       </div>
     );
