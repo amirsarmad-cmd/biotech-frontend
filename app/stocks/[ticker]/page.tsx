@@ -18,6 +18,8 @@ import { RiskFactorsPanel } from '@/components/RiskFactorsPanel';
 import { StockImpactPanel, ProbabilityMathPanel } from '@/components/ImpactAndProbability';
 import { FundamentalsPanel } from '@/components/FundamentalsPanel';
 import { PriceHistoryChart } from '@/components/PriceHistoryChart';
+import { AIConsensusPanel } from '@/components/AIConsensusPanel';
+import { StrategyPanel } from '@/components/StrategyPanel';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -248,6 +250,25 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             <AnalystPanel data={analystQ.data} loading={analystQ.isLoading} />
             <SocialPanel data={socialQ.data} loading={socialQ.isLoading} />
           </div>
+
+          {/* Trade Strategy */}
+          <StrategyPanel
+            ticker={TICKER}
+            aiProb={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+            daysToCatalyst={(() => {
+              const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
+              return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
+            })()}
+          />
+
+          {/* AI 3-model consensus */}
+          <AIConsensusPanel
+            ticker={TICKER}
+            companyName={stock.company_name}
+            catalyst={stock.npv_catalyst || stock.primary_catalyst}
+            npv={npv}
+            news={newsQ.data?.articles}
+          />
 
           {/* News */}
           <NewsPanel data={newsQ.data} loading={newsQ.isLoading} />
