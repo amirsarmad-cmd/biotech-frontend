@@ -21,6 +21,8 @@ interface PostCatalystOutcome {
   actual_move_pct_30d?: number;
   predicted_prob?: number;
   predicted_move_pct?: number;
+  options_implied_move_pct?: number | null;
+  options_implied_move_source?: string | null;
   outcome?: 'approved' | 'rejected' | 'delayed' | 'mixed' | 'unknown' | string;
   outcome_confidence?: number;
   outcome_notes?: string;
@@ -170,6 +172,7 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
                 <th className="px-2 py-2 text-left">Date</th>
                 <th className="px-2 py-2 text-left">Type · Drug</th>
                 <th className="px-2 py-2 text-right">Predicted</th>
+                <th className="px-2 py-2 text-right" title="ATM straddle-implied move at the catalyst window. Captured at backfill time when yfinance options data is available — not retro-fillable for older events.">Options ±</th>
                 <th className="px-2 py-2 text-right">Actual (1d)</th>
                 <th className="px-2 py-2 text-right">Actual (30d)</th>
                 <th className="px-2 py-2 text-right">|Error|</th>
@@ -196,6 +199,11 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
                       {o.predicted_prob != null && (
                         <div className="text-[10px] text-neutral-600">p={Math.round(o.predicted_prob * 100)}%</div>
                       )}
+                    </td>
+                    <td className="px-2 py-1.5 text-right font-mono text-cyan-300">
+                      {o.options_implied_move_pct != null
+                        ? `±${Math.abs(o.options_implied_move_pct).toFixed(1)}%`
+                        : <span className="text-neutral-700">—</span>}
                     </td>
                     <td className={`px-2 py-1.5 text-right font-mono ${(o.actual_move_pct_1d ?? 0) >= 0 ? 'text-emerald-300' : 'text-red-300'}`}>
                       {fmtPct(o.actual_move_pct_1d)}
