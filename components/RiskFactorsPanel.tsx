@@ -96,7 +96,7 @@ export function RiskFactorsPanel({ breakdown, totalDiscountPct, rawNpvB, adjuste
                 )}
               </div>
               {rationale && (
-                <p className="mt-1 text-xs text-neutral-400 leading-relaxed line-clamp-2">{rationale}</p>
+                <p className={`mt-1 text-xs leading-relaxed ${triggered ? 'text-neutral-300' : 'text-neutral-500'}`}>{rationale}</p>
               )}
             </div>
           );
