@@ -387,7 +387,8 @@ export async function analyzeNpv(payload: {
   ticker: string;
   catalyst_type?: string;
   market_cap_m?: number;
-  p_commercial?: number;
+  p_approval?: number;     // P(catalyst event resolves favorably) — primary
+  p_commercial?: number;   // P(strong commercial uptake | approved) — separate
   discount_rate?: number;
   tax_rate?: number;
   cogs_pct?: number;

@@ -76,7 +76,10 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         ticker,
         catalyst_type: npvCatalyst?.type || 'FDA Decision',
         market_cap_m: marketCapM,
-        p_commercial: npvCatalyst?.probability,
+        // The catalyst's `probability` field is P(approval / favorable outcome).
+        // Send it as p_approval — NOT p_commercial. p_commercial (P(strong uptake | approved))
+        // is a separate haircut handled by the V2 LLM economics estimate.
+        p_approval: npvCatalyst?.probability,
         discount_rate: discountRate,
         force_refresh: forceRefresh,
         // Scope LLM to THIS specific catalyst (drug + indication) so it
