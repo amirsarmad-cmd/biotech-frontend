@@ -144,6 +144,13 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
         />
       </div>
 
+      {/* Backtest health banner — surfaces when accuracy is poor or when
+          there's a systematic bias. Honest disclosure to users that the
+          predicted_move_pct number is unreliable in its current form. */}
+      {accuracy && (accuracy.total ?? 0) >= 50 && (
+        <BacktestHealthBanner accuracy={accuracy} />
+      )}
+
       {/* History table */}
       {historyQ.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-neutral-500">
@@ -239,6 +246,81 @@ function Stat({ label, value, sub, accent }: { label: string; value: string; sub
       <div className="text-[10px] uppercase tracking-wide text-neutral-500">{label}</div>
       <div className={`mt-1 text-lg font-semibold ${valueColor}`}>{value}</div>
       {sub && <div className="mt-0.5 text-[11px] text-neutral-500">{sub}</div>}
+    </div>
+  );
+}
+
+/**
+ * Honest disclosure banner showing how well our predictions match reality.
+ * - Below 45% direction accuracy: red — model is actively misleading
+ * - 45-55%: amber — model is essentially noise
+ * - 55-65%: violet — modest predictive power
+ * - 65%+: green — useful signal
+ *
+ * Also surfaces the avg_signed_error to flag systematic bias (positive =
+ * model over-predicts upside; negative = under-predicts).
+ */
+function BacktestHealthBanner({ accuracy }: { accuracy: AccuracyResp }) {
+  const acc = accuracy.direction_accuracy_pct ?? 0;
+  const signedErr = accuracy.avg_signed_error_pct ?? 0;
+  const absErr = accuracy.avg_abs_error_pct ?? 0;
+  const n = accuracy.total ?? 0;
+
+  let tone: 'red' | 'amber' | 'violet' | 'green';
+  let headline: string;
+  let detail: string;
+
+  if (acc < 45) {
+    tone = 'red';
+    headline = `Backtest below random (${acc.toFixed(0)}% direction accuracy on N=${n})`;
+    detail = 'Our predicted_move_pct is currently a worse-than-coin-flip predictor of post-catalyst direction. Treat as approximate magnitude only — not direction.';
+  } else if (acc < 55) {
+    tone = 'amber';
+    headline = `Backtest near random (${acc.toFixed(0)}% direction accuracy on N=${n})`;
+    detail = 'Predicted moves match reality at roughly coin-flip rate. The options-implied move panel above shows the market consensus — which has historically been more accurate than our reference table.';
+  } else if (acc < 65) {
+    tone = 'violet';
+    headline = `Modest predictive signal (${acc.toFixed(0)}% on N=${n})`;
+    detail = 'Predictions beat random but with significant noise. Use as one input among many, not a sole basis for trades.';
+  } else {
+    tone = 'green';
+    headline = `Strong backtest signal (${acc.toFixed(0)}% on N=${n})`;
+    detail = `Predictions show real predictive power. Avg abs error ${absErr.toFixed(1)}pts.`;
+  }
+
+  // Bias note
+  const biasNote = Math.abs(signedErr) > 5
+    ? `Systematic bias: model ${signedErr > 0 ? 'over' : 'under'}-predicts moves by avg ${Math.abs(signedErr).toFixed(1)}pts. ${signedErr > 0 ? 'FDA approvals are usually priced-in, so reality moves less than the reference table predicts.' : 'Model under-states tail risk on rejections.'}`
+    : null;
+
+  const toneClass = {
+    red:    'border-red-500/30 bg-red-500/10',
+    amber:  'border-amber-500/30 bg-amber-500/5',
+    violet: 'border-violet-500/30 bg-violet-500/5',
+    green:  'border-emerald-500/30 bg-emerald-500/5',
+  }[tone];
+
+  const headlineColor = {
+    red: 'text-red-200',
+    amber: 'text-amber-200',
+    violet: 'text-violet-200',
+    green: 'text-emerald-200',
+  }[tone];
+
+  const Icon = tone === 'red' ? X : tone === 'amber' ? Info : tone === 'violet' ? Info : Check;
+
+  return (
+    <div className={`rounded-md border p-3 ${toneClass}`}>
+      <div className={`flex items-center gap-2 text-sm font-medium ${headlineColor}`}>
+        <Icon className="h-4 w-4" />
+        {headline}
+      </div>
+      <div className="mt-1 pl-6 text-xs text-neutral-400 leading-relaxed">{detail}</div>
+      {biasNote && (
+        <div className="mt-1 pl-6 text-xs text-amber-100/80 leading-relaxed">
+          <span className="text-amber-300">⚠ </span>{biasNote}
+        </div>
+      )}
     </div>
   );
 }
