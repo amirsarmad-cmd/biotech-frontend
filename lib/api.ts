@@ -12,6 +12,10 @@ export interface Catalyst {
   date: string;
   probability: number;
   description: string;
+  drug_name?: string;
+  indication?: string;
+  phase?: string;
+  source?: string;
 }
 
 export interface Stock {

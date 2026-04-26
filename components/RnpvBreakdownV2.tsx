@@ -15,6 +15,9 @@ interface Props {
     date: string;
     probability: number;
     description: string;
+    drug_name?: string;
+    indication?: string;
+    phase?: string;
   } | null;
 }
 
@@ -66,7 +69,7 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
   const [discountRate, setDiscountRate] = useState(0.10);
 
   const q = useQuery({
-    queryKey: ['analyze-npv-v2', ticker, npvCatalyst?.type, npvCatalyst?.date, discountRate, forceRefresh],
+    queryKey: ['analyze-npv-v2', ticker, npvCatalyst?.type, npvCatalyst?.date, npvCatalyst?.drug_name, discountRate, forceRefresh],
     queryFn: async (): Promise<NPVAnalyzeResponse> => {
       const resp = await analyzeNpv({
         ticker,
@@ -75,6 +78,11 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         p_commercial: npvCatalyst?.probability,
         discount_rate: discountRate,
         force_refresh: forceRefresh,
+        // Scope LLM to THIS specific catalyst (drug + indication) so it
+        // doesn't return a whole-company estimate. This is critical for
+        // companies with multiple programs (e.g., NTLA has lonvo-z + nex-z).
+        drug_name_override: npvCatalyst?.drug_name,
+        description_override: npvCatalyst?.description,
       });
       // Reset force flag after consuming so subsequent prop changes use cache
       if (forceRefresh) setForceRefresh(false);
