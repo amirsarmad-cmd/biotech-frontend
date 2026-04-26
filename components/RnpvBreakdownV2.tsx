@@ -6,6 +6,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceL
 import { TrendingUp, RefreshCw, Calendar, DollarSign, Users, Building2, AlertTriangle, Info } from 'lucide-react';
 import { analyzeNpv, type NPVAnalyzeResponse, type DrugEconomicsV2 } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
+import { VerifiedFactsPanel } from './VerifiedFactsPanel';
 
 interface Props {
   ticker: string;
@@ -221,6 +222,12 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
           accent="muted"
         />
       </div>
+
+      {/* Layer 1 (verified facts) — sits above LLM-driven analysis to anchor user expectations */}
+      <VerifiedFactsPanel
+        verifiedFacts={(e2 as unknown as { verified_facts?: typeof e2.verified_facts }).verified_facts ?? null}
+        confidenceScore={e2.confidence_score ?? null}
+      />
 
       {/* ─── METHODOLOGY AUDIT: Scenarios + Per-share + Split prob ─── */}
       {(r.scenarios || r.per_share_drug_npv_usd || e2.p_event_occurs != null) && (

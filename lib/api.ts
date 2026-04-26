@@ -292,6 +292,51 @@ export async function getJob(jobId: string): Promise<JobStatus> {
 }
 
 // ---- V2 NPV (Phase 2B): structured economics + true rNPV --------------------
+export type ProvenanceSource =
+  | 'openfda' | 'clinicaltrials_gov' | 'sec_edgar' | 'orange_book' | 'polygon_options'
+  | 'finnhub' | 'llm_grounded_web' | 'llm_inference' | 'user_research';
+
+export interface ProvenanceEntry {
+  source: ProvenanceSource;
+  confidence: 'high' | 'medium' | 'low';
+  citation: string;
+}
+
+export interface VerifiedFacts {
+  ticker: string;
+  drug_name: string;
+  indication?: string | null;
+  drug_label?: {
+    brand_names?: string[];
+    generic_names?: string[];
+    indications_and_usage?: string;
+    boxed_warning?: string | null;
+    manufacturer_name?: string[];
+  };
+  approval_history?: {
+    approval_count: number;
+    rejection_count: number;
+    earliest_approval?: string | null;
+    latest_action?: string | null;
+    applications?: Array<{ application_number?: string; sponsor_name?: string }>;
+  };
+  clinical_trials?: {
+    total_count: number;
+    studies: Array<{
+      nct_id?: string;
+      brief_title?: string;
+      phase?: string;
+      status?: string;
+      enrollment?: number;
+      primary_completion_date?: string;
+      _url?: string;
+    }>;
+  };
+  _sources_attempted: string[];
+  _sources_succeeded: string[];
+  _fetch_duration_ms?: number;
+}
+
 export interface DrugEconomicsV2 {
   catalyst_scope?: 'first_approval' | 'new_indication' | 'label_expansion' | 'phase_readout' | 'earnings' | 'other' | string;
   indication?: string;
@@ -301,6 +346,10 @@ export interface DrugEconomicsV2 {
   addressable_population_global?: number | null;
   annual_cost_min_usd?: number | null;
   annual_cost_max_usd?: number | null;
+  // Net realized pricing (post-rebates) — split US vs ex-US
+  annual_cost_us_net_usd?: number | null;
+  annual_cost_exus_net_usd?: number | null;
+  revenue_split_us_pct?: number | null;
   standard_of_care_cost_usd?: number | null;
   penetration_min_pct?: number | null;
   penetration_max_pct?: number | null;
@@ -322,6 +371,10 @@ export interface DrugEconomicsV2 {
   llm_provider?: string;
   peak_sales_usd_b?: number;
   research_context?: string;
+  // Provenance & confidence — per-field source tagging
+  provenance?: Record<string, ProvenanceEntry>;
+  confidence_score?: number | null;  // 0-1 rollup across critical fields
+  verified_facts?: VerifiedFacts;     // FDA + CT.gov anchored facts
   _from_cache?: boolean;
   error?: string | null;
 }
