@@ -23,39 +23,53 @@ interface Props {
 
 /**
  * Reference dataset of typical % moves for each catalyst type.
- * Sources: empirical biotech catalyst studies (Pharmagellan, Endpoints News).
- * Format: [up_pct, down_pct] — used when stock's own historical moves not available.
+ *
+ * CALIBRATED against N=287 historical post-catalyst outcomes
+ * (see /admin/post-catalyst/move-stats), 2020-2025. The original values
+ * (e.g., FDA Decision [25, -20]) were 5-15× too aggressive. Real biotech
+ * catalysts typically move ~3-5% on the day-of, because:
+ *   - FDA approvals are usually priced in by PDUFA date
+ *   - Phase 3 readouts often happen pre-market; closing move muted
+ *   - Outsized moves (>25%) are tail events, not the typical case
+ *
+ * MUST stay in sync with services/post_catalyst_tracker.py:REF_MOVES.
+ * Format: [up_pct, down_pct].
  */
 const REFERENCE_MOVES: Record<string, [number, number]> = {
-  'FDA Decision':              [25, -20],
-  'PDUFA Decision':            [25, -20],
-  'AdComm':                    [15, -12],
-  'Advisory Committee':        [15, -12],
-  'Phase 3 Readout':           [35, -30],
-  'Phase 3':                   [35, -30],
-  'Phase 2 Readout':           [25, -20],
-  'Phase 2':                   [25, -20],
-  'Phase 1 Readout':           [15, -12],
-  'Phase 1':                   [15, -12],
-  'Phase 1/2 Readout':         [18, -15],
-  'Phase 1/2':                 [18, -15],
-  'Phase 2/3 Readout':         [30, -25],
-  'Phase 1/2/3 Readout':       [25, -22],
-  'Clinical Trial':            [12, -10],
-  'Clinical Trial Readout':    [20, -18],
-  'NDA submission':            [8, -5],
-  'BLA submission':            [8, -5],
-  'sBLA submission':           [5, -3],
-  'sNDA submission':           [5, -3],
-  'IND submission':            [3, -2],
-  'IND/CTA submission':        [3, -2],
-  'Regulatory Decision':       [22, -18],
-  'Regulatory Submission':     [6, -4],
-  'Regulatory Meeting/Discussion': [4, -3],
-  'Partnership':               [10, -3],
-  'Earnings':                  [6, -5],
-  'Product Launch':            [10, -8],
-  'Commercial Launch':         [10, -8],
+  // FDA / regulatory — well-sampled (n=129 approved / 30 rejected)
+  'FDA Decision':              [4, -5],
+  'PDUFA Decision':            [4, -5],
+  'Regulatory Decision':       [4, -5],
+  // AdComm — limited data, kept conservative estimates
+  'AdComm':                    [8, -10],
+  'Advisory Committee':        [8, -10],
+  // Phase readouts — well-sampled (Phase 2: n=54, Phase 3: n=40)
+  'Phase 3 Readout':           [3, -5],
+  'Phase 3':                   [3, -5],
+  'Phase 2 Readout':           [4, -2],
+  'Phase 2':                   [4, -2],
+  'Phase 1 Readout':           [10, -6],
+  'Phase 1':                   [10, -6],
+  'Phase 1/2 Readout':         [8, -6],
+  'Phase 1/2':                 [8, -6],
+  'Phase 2/3 Readout':         [4, -4],  // pooled estimate
+  'Phase 1/2/3 Readout':       [5, -5],  // pooled estimate
+  'Clinical Trial':            [5, -3],
+  'Clinical Trial Readout':    [5, -3],
+  // Submissions — typically minimal price reaction
+  'NDA submission':            [2, -2],
+  'BLA submission':            [2, -2],
+  'sBLA submission':           [2, -2],
+  'sNDA submission':           [2, -2],
+  'IND submission':            [1, -1],
+  'IND/CTA submission':        [1, -1],
+  'Regulatory Submission':     [2, -2],
+  'Regulatory Meeting/Discussion': [2, -2],
+  // Other — kept estimates (no historical sample yet)
+  'Partnership':               [5, -2],
+  'Earnings':                  [3, -3],
+  'Product Launch':            [4, -4],
+  'Commercial Launch':         [4, -4],
 };
 
 function getReferenceMove(catalystType: string): [number, number] {
@@ -74,8 +88,8 @@ function getReferenceMove(catalystType: string): [number, number] {
   if (lower.includes('partnership')) return REFERENCE_MOVES['Partnership'];
   if (lower.includes('earnings')) return REFERENCE_MOVES['Earnings'];
   if (lower.includes('launch')) return REFERENCE_MOVES['Product Launch'];
-  // Default fallback
-  return [10, -8];
+  // Default fallback (was [10, -8] — recalibrated to match avg of FDA Decision)
+  return [4, -4];
 }
 
 function daysUntil(dateStr: string): number {
