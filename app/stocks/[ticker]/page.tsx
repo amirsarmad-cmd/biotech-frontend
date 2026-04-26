@@ -28,6 +28,7 @@ import { CatalystTimeline } from '@/components/CatalystTimeline';
 import { NPVSlidersPanel } from '@/components/NPVSlidersPanel';
 import { CatalystRiskPanel } from '@/components/CatalystRiskPanel';
 import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
+import { OptionsImpliedPanel } from '@/components/OptionsImpliedPanel';
 import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
 
 type StockDetailExt = StockDetail & {
@@ -273,6 +274,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             marketCapM={stock.market_cap_m}
             npvCatalyst={stock.npv_catalyst}
           />
+
+          {/* Methodology audit #1: options-implied move from yfinance straddle */}
+          {stock.options_implied && (
+            <OptionsImpliedPanel
+              optionsImplied={stock.options_implied}
+              predictedMovePct={npv?.upside_pct}
+            />
+          )}
 
           {/* Section 1C: Post-Catalyst History — predicted vs actual learning loop */}
           <PostCatalystHistoryPanel ticker={TICKER} />

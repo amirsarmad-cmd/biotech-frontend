@@ -67,9 +67,10 @@ const MODALITY_LABEL: Record<string, string> = {
 export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
   const [forceRefresh, setForceRefresh] = useState(false);
   const [discountRate, setDiscountRate] = useState(0.10);
+  const [dilutionPct, setDilutionPct] = useState(0);  // 0-50%, addresses methodology audit #2
 
   const q = useQuery({
-    queryKey: ['analyze-npv-v2', ticker, npvCatalyst?.type, npvCatalyst?.date, npvCatalyst?.drug_name, discountRate, forceRefresh],
+    queryKey: ['analyze-npv-v2', ticker, npvCatalyst?.type, npvCatalyst?.date, npvCatalyst?.drug_name, discountRate, dilutionPct, forceRefresh],
     queryFn: async (): Promise<NPVAnalyzeResponse> => {
       const resp = await analyzeNpv({
         ticker,
@@ -83,6 +84,8 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         // companies with multiple programs (e.g., NTLA has lonvo-z + nex-z).
         drug_name_override: npvCatalyst?.drug_name,
         description_override: npvCatalyst?.description,
+        // Methodology audit #2 — capital structure
+        dilution_assumed_pct: dilutionPct > 0 ? dilutionPct : undefined,
       });
       // Reset force flag after consuming so subsequent prop changes use cache
       if (forceRefresh) setForceRefresh(false);
@@ -182,6 +185,17 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
             <option value={0.12}>WACC 12%</option>
             <option value={0.15}>WACC 15%</option>
           </select>
+          <select
+            value={dilutionPct}
+            onChange={(e) => setDilutionPct(Number(e.target.value))}
+            className="rounded border border-border bg-bg/50 px-2 py-1 text-xs text-neutral-300"
+            title="Assumed dilution to fund commercialization. Set 0% for no-dilution per-share NPV."
+          >
+            <option value={0}>0% dilution</option>
+            <option value={15}>15% dilution</option>
+            <option value={30}>30% dilution</option>
+            <option value={50}>50% dilution</option>
+          </select>
           <button
             onClick={() => setForceRefresh(true)}
             className="flex items-center gap-1 rounded border border-border px-2 py-1 text-xs text-neutral-400 hover:bg-bg/50"
@@ -204,6 +218,106 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
           accent="muted"
         />
       </div>
+
+      {/* ─── METHODOLOGY AUDIT: Scenarios + Per-share + Split prob ─── */}
+      {(r.scenarios || r.per_share_drug_npv_usd || e2.p_event_occurs != null) && (
+        <div className="rounded-md border border-violet-500/20 bg-violet-500/5 p-4 space-y-4">
+          <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-violet-200">
+            <Info className="h-3.5 w-3.5" />
+            Scenario range &amp; per-share — methodology audit fields
+            <InfoTooltip
+              text="Bear/base/bull scale with LLM penetration min/mid/max. Per-share NPV uses yfinance shares outstanding. Split probability separates timing-certainty from outcome-success — addresses long-known weaknesses in single-prob biotech models."
+              position="bottom"
+            />
+          </div>
+
+          {/* Bear / Base / Bull scenarios */}
+          {r.scenarios && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {(['bear', 'base', 'bull'] as const).map((k) => {
+                const s = r.scenarios?.[k];
+                if (!s) return null;
+                const tone = k === 'base' ? 'border-violet-500/30 bg-violet-500/10' : 'border-border bg-bg/40';
+                const label = k === 'bear' ? 'Bear' : k === 'base' ? 'Base' : 'Bull';
+                const accent = k === 'bear' ? 'text-amber-300' : k === 'base' ? 'text-violet-200' : 'text-emerald-300';
+                return (
+                  <div key={k} className={`rounded-md border p-3 ${tone}`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-xs font-medium ${accent}`}>{label}</span>
+                      <span className="text-[10px] text-neutral-500">{s.penetration_pct}% pen</span>
+                    </div>
+                    <div className="mt-1 text-lg font-semibold">${(s.rnpv_m / 1000).toFixed(2)}B</div>
+                    <div className="text-[11px] text-neutral-500">peak ${s.peak_sales_usd_b.toFixed(2)}B</div>
+                    <div className="mt-1 text-[10px] leading-tight text-neutral-500">{s.label}</div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Per-share NPV row */}
+          {r.shares_outstanding_m && r.per_share_drug_npv_usd != null && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md bg-bg/40 p-3">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-neutral-500">Shares outstanding</div>
+                <div className="font-mono text-sm">{r.shares_outstanding_m.toFixed(1)}M</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-neutral-500">Per-share rNPV</div>
+                <div className="font-mono text-sm text-violet-200">${r.per_share_drug_npv_usd.toFixed(2)}</div>
+              </div>
+              {r.per_share_after_dilution_usd != null && (
+                <div>
+                  <div className="text-[10px] uppercase tracking-wide text-neutral-500">After {r.dilution_assumed_pct}% dilution</div>
+                  <div className="font-mono text-sm text-amber-300">${r.per_share_after_dilution_usd.toFixed(2)}</div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Split probability */}
+          {e2.p_event_occurs != null && e2.p_positive_outcome != null && (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 rounded-md bg-bg/40 p-3">
+              <div>
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                  P(event occurs)
+                  <InfoTooltip text="Timing certainty — probability the catalyst event itself happens on the stated date (readout reported, PDUFA decision rendered). NOT the probability of success." position="bottom" />
+                </div>
+                <div className="font-mono text-sm">{(e2.p_event_occurs * 100).toFixed(0)}%</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                  P(positive outcome)
+                  <InfoTooltip text="Probability the outcome is favorable, given the event happens. This is what investors mean by 'probability of approval'." position="bottom" />
+                </div>
+                <div className="font-mono text-sm">{(e2.p_positive_outcome * 100).toFixed(0)}%</div>
+              </div>
+              <div>
+                <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500">
+                  P(commercial success)
+                  <InfoTooltip text="Probability of strong commercial uptake given approval. First-in-class with unmet need: 0.75-0.90; me-too in crowded indication: 0.30-0.55." position="bottom" />
+                </div>
+                <div className="font-mono text-sm">{((e2.commercial_success_prob ?? 0.6) * 100).toFixed(0)}%</div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Caveats — be honest about LLM-data limits */}
+      {r.caveats && r.caveats.length > 0 && (
+        <div className="rounded-md border border-amber-500/20 bg-amber-500/5 p-3">
+          <div className="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-amber-200">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Limits of this analysis
+          </div>
+          <ul className="space-y-1 text-xs text-amber-100/80">
+            {r.caveats.map((c, i) => (
+              <li key={i} className="flex gap-2"><span className="text-amber-500">•</span><span>{c}</span></li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {/* Structured economics */}
       <div>

@@ -178,6 +178,19 @@ export function NPVBreakdown({ data, currentPrice, npvCatalyst }: NPVProps) {
               </span>
             </div>
           )}
+
+          {/* Methodology audit transparency — flag known double-counting */}
+          {Array.isArray(npvObj.methodology_notes) && (npvObj.methodology_notes as string[]).length > 0 && (
+            <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 p-3 text-xs space-y-2">
+              <div className="font-medium text-amber-200">Methodology disclosures</div>
+              {(npvObj.methodology_notes as string[]).map((note, i) => (
+                <div key={i} className="flex gap-2 text-amber-100/80">
+                  <span className="text-amber-500">⚠</span>
+                  <span>{note}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </>
       )}
     </div>

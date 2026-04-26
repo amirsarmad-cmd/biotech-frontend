@@ -100,6 +100,7 @@ export interface StockDetail {
   market_cap_m: number;
   primary_catalyst: Catalyst;
   npv_catalyst?: Catalyst | null;
+  options_implied?: OptionsImplied | null;
   all_catalysts: Catalyst[];
   npv: NPVFull | null;
   scores: {
@@ -311,12 +312,16 @@ export interface DrugEconomicsV2 {
   loe_dropoff_pct?: number | null;
   cogs_pct_estimate?: number | null;
   commercial_success_prob?: number | null;
+  // Methodology audit additions — split probability
+  p_event_occurs?: number | null;
+  p_positive_outcome?: number | null;
   competitors?: string[];
   competitive_intensity?: 'low' | 'medium' | 'high' | string;
   key_risks?: string[];
   llm_rationale?: string;
   llm_provider?: string;
   peak_sales_usd_b?: number;
+  research_context?: string;
   _from_cache?: boolean;
   error?: string | null;
 }
@@ -331,6 +336,13 @@ export interface RnpvForecastRow {
   penetration_pct: number;
 }
 
+export interface RnpvScenario {
+  rnpv_m: number;
+  peak_sales_usd_b: number;
+  penetration_pct: number;
+  label: string;
+}
+
 export interface RnpvFull {
   rnpv_m: number;
   deterministic_npv_m: number;
@@ -339,13 +351,33 @@ export interface RnpvFull {
   revenue_forecast: RnpvForecastRow[];
   assumptions_used?: Record<string, unknown>;
   error?: string | null;
+  // Methodology audit additions
+  scenarios?: { bear?: RnpvScenario; base?: RnpvScenario; bull?: RnpvScenario };
+  per_share_drug_npv_usd?: number | null;
+  per_share_after_dilution_usd?: number | null;
+  shares_outstanding_m?: number | null;
+  dilution_assumed_pct?: number | null;
+  caveats?: string[];
+}
+
+export interface OptionsImplied {
+  implied_move_pct: number;
+  expiry: string;
+  atm_strike: number;
+  straddle_premium: number;
+  stock_price: number;
+  days_to_expiry: number;
+  source: string;
+  annualized_iv_pct?: number | null;
+  call_price?: number;
+  put_price?: number;
 }
 
 export interface NPVAnalyzeResponse {
   ticker: string;
   drug_name?: string;
   economics?: Record<string, unknown>;       // legacy LLM economics
-  npv?: NPVFull;                              // legacy multiple-based NPV
+  npv?: NPVFull & { methodology_notes?: string[] };  // legacy multiple-based NPV + audit notes
   economics_v2?: DrugEconomicsV2;             // structured fields
   rnpv?: RnpvFull;                            // year-by-year DCF
   from_cache?: boolean;
@@ -362,6 +394,9 @@ export async function analyzeNpv(payload: {
   force_refresh?: boolean;
   drug_name_override?: string;
   description_override?: string;
+  // Methodology audit additions
+  dilution_assumed_pct?: number;
+  shares_outstanding_m_override?: number;
 }): Promise<NPVAnalyzeResponse> {
   return apiFetch('/analyze/npv', {
     method: 'POST',
