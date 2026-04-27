@@ -84,15 +84,21 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
     staleTime: 10 * 60_000,
   });
 
-  // Lookup catalyst_id from universe table for the primary catalyst (used by Risk Factors panel)
+  // Lookup catalyst_id from universe table for THIS ticker only.
+  // Uses /universe/catalysts?ticker= filter — ChatGPT pass-4 critique #9:
+  // 'frontend pulls universe catalysts inefficiently /universe/catalysts?limit=200
+  //  Then filters client-side for the ticker. That can miss catalysts if NTLA
+  //  is not inside the first 200 returned rows.'
+  // Fixed by passing ticker filter + raising limit cap.
   const universeCatalystsQ = useQuery({
     queryKey: ['universe-catalysts', TICKER],
     queryFn: async (): Promise<Array<{id: number; ticker: string; catalyst_type: string; catalyst_date: string; drug_name?: string | null}>> => {
-      const url = `${process.env.NEXT_PUBLIC_API_URL || 'https://biotech-api-production-7ec4.up.railway.app'}/universe/catalysts?limit=200`;
+      const base = process.env.NEXT_PUBLIC_API_URL || 'https://biotech-api-production-7ec4.up.railway.app';
+      const url = `${base}/universe/catalysts?ticker=${encodeURIComponent(TICKER)}&limit=50`;
       const r = await fetch(url);
       if (!r.ok) return [];
       const d = await r.json();
-      return ((d.items || []) as Array<{ticker: string; id: number; catalyst_type: string; catalyst_date: string; drug_name?: string | null}>).filter(c => c.ticker === TICKER);
+      return (d.items || []) as Array<{ticker: string; id: number; catalyst_type: string; catalyst_date: string; drug_name?: string | null}>;
     },
     staleTime: 10 * 60_000,
   });
@@ -394,56 +400,78 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             onPeriodChange={setPeriod}
           />
 
-          {/* Analyst + Social */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            <AnalystPanel data={analystQ.data} loading={analystQ.isLoading} />
-            <SocialPanel data={socialQ.data} loading={socialQ.isLoading} />
-          </div>
+          {/* === SENTIMENT & NEWS (expandable) ===
+              Per ChatGPT pass-4 critique: 19+ panels was too noisy. These
+              live below the fold for users who want them, hidden by default. */}
+          <details className="rounded-lg border border-border/50 bg-bg/40">
+            <summary className="cursor-pointer px-4 py-3 text-sm text-neutral-300 hover:text-neutral-100 select-none">
+              <span className="font-medium">Sentiment &amp; news</span>
+              <span className="ml-2 text-[10px] text-neutral-500">
+                — analyst ratings, social sentiment, news impact, news feed
+              </span>
+            </summary>
+            <div className="border-t border-border/40 p-4 space-y-6">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <AnalystPanel data={analystQ.data} loading={analystQ.isLoading} />
+                <SocialPanel data={socialQ.data} loading={socialQ.isLoading} />
+              </div>
+              {/* Section 2C: News × NPV impact */}
+              {npv && stock.current_price && (
+                <NewsImpactPanel
+                  ticker={TICKER}
+                  companyName={stock.company_name}
+                  currentPrice={stock.current_price}
+                  marketCapM={stock.market_cap_m}
+                  npv={npv}
+                  catalyst={stock.npv_catalyst || stock.primary_catalyst}
+                  news={newsQ.data?.articles}
+                />
+              )}
+              {/* News feed */}
+              <NewsPanel data={newsQ.data} loading={newsQ.isLoading} />
+            </div>
+          </details>
 
-          {/* Trade Strategy */}
-          <StrategyPanel
-            ticker={TICKER}
-            aiProb={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
-            daysToCatalyst={(() => {
-              const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
-              return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
-            })()}
-          />
+          {/* === TRADING & STRATEGY (expandable) ===
+              Strategy + Calculator + AI consensus — useful but advanced. */}
+          <details className="rounded-lg border border-border/50 bg-bg/40">
+            <summary className="cursor-pointer px-4 py-3 text-sm text-neutral-300 hover:text-neutral-100 select-none">
+              <span className="font-medium">Trading &amp; strategy</span>
+              <span className="ml-2 text-[10px] text-neutral-500">
+                — option strategies, position sizing, AI 3-model consensus
+              </span>
+            </summary>
+            <div className="border-t border-border/40 p-4 space-y-6">
+              {/* Trade Strategy */}
+              <StrategyPanel
+                ticker={TICKER}
+                aiProb={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+                daysToCatalyst={(() => {
+                  const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
+                  return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
+                })()}
+              />
 
-          {/* Investment Calculator (#8) */}
-          <InvestmentCalculator
-            ticker={TICKER}
-            currentPrice={stock.current_price}
-            probApproval={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
-            upPct={npv?.upside_pct ?? null}
-            downPct={npv?.downside_pct ?? null}
-            optionsData={(stratQ.data as { options_chain?: { available?: boolean; expiry?: string | null; days_to_expiry?: number; calls?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; puts?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; atm_iv?: number } } | undefined)?.options_chain ?? null}
-          />
+              {/* Investment Calculator */}
+              <InvestmentCalculator
+                ticker={TICKER}
+                currentPrice={stock.current_price}
+                probApproval={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
+                upPct={npv?.upside_pct ?? null}
+                downPct={npv?.downside_pct ?? null}
+                optionsData={(stratQ.data as { options_chain?: { available?: boolean; expiry?: string | null; days_to_expiry?: number; calls?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; puts?: Array<{ strike: number; bid: number; ask: number; lastPrice: number; impliedVolatility: number }>; atm_iv?: number } } | undefined)?.options_chain ?? null}
+              />
 
-          {/* AI 3-model consensus */}
-          <AIConsensusPanel
-            ticker={TICKER}
-            companyName={stock.company_name}
-            catalyst={stock.npv_catalyst || stock.primary_catalyst}
-            npv={npv}
-            news={newsQ.data?.articles}
-          />
-
-          {/* Section 2C: News × NPV impact */}
-          {npv && stock.current_price && (
-            <NewsImpactPanel
-              ticker={TICKER}
-              companyName={stock.company_name}
-              currentPrice={stock.current_price}
-              marketCapM={stock.market_cap_m}
-              npv={npv}
-              catalyst={stock.npv_catalyst || stock.primary_catalyst}
-              news={newsQ.data?.articles}
-            />
-          )}
-
-          {/* News */}
-          <NewsPanel data={newsQ.data} loading={newsQ.isLoading} />
+              {/* AI 3-model consensus */}
+              <AIConsensusPanel
+                ticker={TICKER}
+                companyName={stock.company_name}
+                catalyst={stock.npv_catalyst || stock.primary_catalyst}
+                npv={npv}
+                news={newsQ.data?.articles}
+              />
+            </div>
+          </details>
         </>
       )}
     </div>
