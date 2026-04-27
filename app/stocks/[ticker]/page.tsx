@@ -32,6 +32,7 @@ import { OptionsImpliedPanel } from '@/components/OptionsImpliedPanel';
 import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
 import { DecisionCockpit } from '@/components/DecisionCockpit';
 import { SetupQualityPanel } from '@/components/SetupQualityPanel';
+import { AskAIChat } from '@/components/AskAIChat';
 import AssetBreakdownPanel from '@/components/AssetBreakdownPanel';
 
 type StockDetailExt = StockDetail & {
@@ -513,6 +514,9 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
           </details>
         </>
       )}
+
+      {/* Floating Ask AI chat — context-aware Q&A about this stock's calculations. */}
+      <AskAIChat ticker={TICKER} />
     </div>
   );
 }

@@ -244,6 +244,9 @@ export function DecisionCockpit({ ticker, stock }: Props) {
               </div>
               <div className="text-[9px] text-neutral-500 leading-snug">
                 {cat.materiality.rationale}
+                <InfoTooltip
+                  text="'Mostly priced in' = the EVENT is past or imminent, market has already adjusted. This is separate from rNPV upside, which represents the long-term cash flow story (12-24mo to launch traction, 5-8yr to peak). The event being priced in doesn't mean the thesis is — those are different time horizons."
+                />
               </div>
             </div>
           )}
@@ -254,6 +257,9 @@ export function DecisionCockpit({ ticker, stock }: Props) {
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500">
             <ShieldCheck className="h-3 w-3" />
             Fair value (rNPV)
+            <InfoTooltip
+              text="rNPV = present value of all expected drug cash flows over the asset's lifecycle (8-15 years), risk-adjusted for approval probability and discounted at 10%. NOT a price target for today — it's what the stock is worth IF the drug reaches modeled peak sales over the launch ramp. Materializes over 12-24 months as BLA → approval → launch traction."
+            />
           </div>
           {perShareFair != null ? (
             <>
@@ -271,6 +277,10 @@ export function DecisionCockpit({ ticker, stock }: Props) {
                     after −{ev.projected_dilution_pct.toFixed(0)}% dilution
                   </div>
                 )}
+              </div>
+              {/* Time-horizon caption — most common confusion source. */}
+              <div className="text-[10px] text-neutral-500 italic leading-snug pt-0.5">
+                materializes over 12-24mo via approval+launch
               </div>
             </>
           ) : equityPostM != null ? (

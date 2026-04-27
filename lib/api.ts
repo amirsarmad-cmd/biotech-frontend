@@ -820,3 +820,43 @@ export async function removeFromShortlist(ticker: string): Promise<{ ticker: str
 export async function checkShortlist(ticker: string): Promise<{ ticker: string; shortlisted: boolean }> {
   return apiFetch(`/shortlist/${encodeURIComponent(ticker)}/check`);
 }
+
+
+// ────────────────────────────────────────────────────────────
+// Ask AI chat — context-aware Q&A about a specific stock's calculations
+// ────────────────────────────────────────────────────────────
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ImprovementProposal {
+  title: string;
+  target: string;          // file path : function/section
+  rationale: string;       // why this change is right
+  change_summary: string;  // what to change
+  confidence: 'high' | 'medium' | 'low';
+}
+
+export interface ChatRequest {
+  ticker: string;
+  question: string;
+  history?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  reply: string;
+  improvement_proposal?: ImprovementProposal | null;
+  duration_ms: number;
+  model: string;
+}
+
+export async function chatExplain(req: ChatRequest): Promise<ChatResponse> {
+  return apiFetch(`/chat/explain`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+}
+
