@@ -444,6 +444,8 @@ export interface MoveEstimates {
   catalyst_type: string;
   p_approval_used: number;
   expected_value_move_pct: number;
+  expected_value_scenario_pct?: number;
+  expected_value_used_fundamental_impact?: boolean;
   options_implied_move_pct: number | null;
   scenario_upside_pct: number;
   scenario_downside_pct: number;
