@@ -19,39 +19,39 @@ interface CategoryMeta {
 const CATEGORY_META: Record<CategoryKey, CategoryMeta> = {
   clinical: {
     label: 'Clinical',
-    description: 'Trial status, enrollment, mechanism, modality',
+    description: 'Catalyst outcome probability — split into event-occurs × positive-given-occurs',
     whatItMeans:
-      'How well-anchored the clinical inputs are. Sources: ClinicalTrials.gov for enrollment + status, FDA labels for indication, LLM analysis for modality + mechanism. HIGH means primary trial data was found via authoritative sources; LOW means we\'re inferring from descriptions.',
+      'How well-anchored the clinical-outcome probabilities are. Sources: industry success-rate tables (Phase 3 to approval ~50-65%), benchmark drugs in same modality and indication, LLM analysis of trial design quality. HIGH means a comparable drug exists with similar trial design; LOW means we\'re extrapolating from limited analogues.',
   },
   regulatory: {
     label: 'Regulatory',
-    description: 'Approval status, patent expiry, launch timeline',
+    description: 'Patent expiry, launch timing, LOE drop-off',
     whatItMeans:
-      'Confidence in regulatory facts. Sources: OpenFDA Drugs@FDA for approval history, Orange Book for patent expirations, LLM for launch timing. For pre-approval drugs this score is mechanically lower because there\'s nothing in OpenFDA yet — that\'s expected, not a flaw.',
+      'Confidence in regulatory facts. Sources: Orange Book for patent expirations on APPROVED drugs, LLM for launch timing on pre-approval drugs. For pre-approval drugs this score is mechanically lower because Orange Book has nothing yet — that\'s expected, not a flaw.',
   },
   market: {
     label: 'Market',
-    description: 'Addressable population, competitive landscape',
+    description: 'Addressable patient population US + global',
     whatItMeans:
-      'Confidence in market sizing. Sources: LLM analysis with web grounding, sometimes user-provided research. For rare diseases the LLM tends to be reasonably accurate (epidemiology is well-published); for novel indications less so.',
+      'Confidence in market sizing. Sources: epidemiology research, sometimes user-provided notes flagged as user_research. For rare diseases the LLM tends to be reasonably accurate (epidemiology is well-published); for novel indications less so. user_research flags = HIGH confidence (you anchored it).',
   },
   pricing: {
     label: 'Pricing',
-    description: 'Net realized prices US + ex-US, gross-to-net adjustments',
+    description: 'Net realized prices US + ex-US, gross-to-net adjustments, SOC comparator',
     whatItMeans:
-      'The weakest area for most pre-approval drugs. Sources: LLM analysis using comparable approved drugs in the same modality and indication. For approved drugs we sometimes have actual list prices; for pipeline drugs we estimate gross-to-net (~50-70% for branded small molecules, 70-85% for biologics, 80-95% for orphans).',
+      'The weakest area for most pre-approval drugs. Sources: LLM analysis using comparable approved drugs in the same modality and indication. For approved drugs we sometimes have actual list prices; for pipeline drugs we estimate gross-to-net (~50-70% for branded small molecules, 70-85% for biologics, 80-95% for orphans). Sanity-check pricing assumptions.',
   },
   penetration: {
     label: 'Penetration',
-    description: 'Peak market share, time-to-peak, commercial success probability',
+    description: 'Peak market share, time-to-peak, commercial success probability, COGS',
     whatItMeans:
-      'How confident we are in commercial uptake assumptions. Sources: LLM with competitive analysis. Best-in-class first-line drugs hit 30-50% peak share; me-too drugs in crowded markets often <15%. This is judgment-heavy and you should question it.',
+      'How confident we are in commercial uptake assumptions. Sources: LLM with competitive analysis. Best-in-class first-line drugs hit 30-50% peak share; me-too drugs in crowded markets often <15%. This is judgment-heavy — question it especially if a major competitor is also launching.',
   },
   dilution: {
     label: 'Dilution',
-    description: 'Capital structure, cash, runway, dilution capacity',
+    description: 'Capital structure (shares, runway) from SEC EDGAR',
     whatItMeans:
-      'Confidence in capital structure. Sources: SEC EDGAR XBRL company facts (cash, debt, shares outstanding) — these are HIGH confidence for any public company. Plus SEC narrative parser for ATM facilities and shelf registrations. Should be near-100% for SEC-filing US companies.',
+      'Confidence in capital structure. Sources: SEC EDGAR XBRL company facts (cash, debt, shares outstanding) — these are HIGH confidence for any public US company. Should be near 100% if shares_outstanding_m and cash_runway_months were both retrievable.',
   },
 };
 
