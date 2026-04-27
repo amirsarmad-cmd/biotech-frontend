@@ -31,6 +31,7 @@ import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
 import { OptionsImpliedPanel } from '@/components/OptionsImpliedPanel';
 import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
 import { DecisionCockpit } from '@/components/DecisionCockpit';
+import { SetupQualityPanel } from '@/components/SetupQualityPanel';
 import AssetBreakdownPanel from '@/components/AssetBreakdownPanel';
 
 type StockDetailExt = StockDetail & {
@@ -296,6 +297,11 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
 
           {/* Decision Cockpit — top-of-page summary (ChatGPT pass-4 critique) */}
           <DecisionCockpit ticker={TICKER} stock={stock} />
+
+          {/* Trade Setup Quality — answers user's NTLA-readout pushback:
+              "How do I avoid sell-the-news on a crowded long?" Scores
+              the entry setup independently of catalyst probability. */}
+          <SetupQualityPanel setup={stock.setup_quality} />
 
           {/* Section 1B: rNPV V2 — primary structured DCF/rNPV (ChatGPT: this is now the canonical valuation) */}
           <div id="rnpv-detail">

@@ -311,6 +311,24 @@ export function DecisionCockpit({ ticker, stock }: Props) {
               <span className="text-[10px] text-neutral-500 self-end">scenarios</span>
             </div>
           )}
+          {/* Setup quality verdict — answers user's NTLA pushback in
+              one glance. Full breakdown is in SetupQualityPanel below. */}
+          {stock.setup_quality?.score != null && (
+            <div className="pt-1 mt-1 border-t border-border/40">
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-mono ${
+                  stock.setup_quality.flag === 'red' ? 'text-red-300' :
+                  stock.setup_quality.flag === 'green' ? 'text-emerald-300' :
+                  'text-amber-300'
+                }`}>
+                  Setup {(stock.setup_quality.score * 100).toFixed(0)}/100
+                </span>
+                <span className="text-[10px] text-neutral-500 truncate" title={stock.setup_quality.verdict}>
+                  {stock.setup_quality.verdict.replace(' — ', ' · ')}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 4. Top risk */}

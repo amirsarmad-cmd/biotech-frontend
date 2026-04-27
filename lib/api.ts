@@ -108,6 +108,29 @@ export interface NPVFull {
   error?: string;
 }
 
+export interface SetupQualityAxis {
+  score: number | null;        // 0.0 (bad) to 1.0 (good)
+  raw: number | null;          // underlying numeric value
+  flag: 'green' | 'amber' | 'red' | 'unknown';
+  note: string;                // one-sentence explanation
+}
+
+export interface SetupQuality {
+  score: number | null;
+  flag: 'green' | 'amber' | 'red' | 'unknown';
+  verdict: string;             // headline e.g. 'Crowded long — sell-the-news risk'
+  axes: {
+    runup: SetupQualityAxis;
+    week52_position: SetupQualityAxis;
+    short_interest: SetupQualityAxis;
+    iv_euphoria: SetupQualityAxis;
+    sentiment: SetupQualityAxis;
+    insider_activity: SetupQualityAxis;
+  };
+  warnings: string[];
+  rationale: string;
+}
+
 export interface StockDetail {
   ticker: string;
   company_name: string;
@@ -117,6 +140,7 @@ export interface StockDetail {
   primary_catalyst: Catalyst;
   npv_catalyst?: Catalyst | null;
   options_implied?: OptionsImplied | null;
+  setup_quality?: SetupQuality | null;
   all_catalysts: Catalyst[];
   npv: NPVFull | null;
   scores: {
