@@ -9,6 +9,8 @@ import { InfoTooltip } from './tooltips';
 import { VerifiedFactsPanel } from './VerifiedFactsPanel';
 import { MoveEstimatesPanel } from './MoveEstimatesPanel';
 import { EquityValuePanel } from './EquityValuePanel';
+import { DilutionCapacityPanel } from './DilutionCapacityPanel';
+import { SourcePrecedenceAuditPanel } from './SourcePrecedenceAuditPanel';
 
 interface Props {
   ticker: string;
@@ -231,6 +233,9 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         confidenceScore={e2.confidence_score ?? null}
       />
 
+      {/* Source-precedence audit — what verified values overrode LLM inference */}
+      <SourcePrecedenceAuditPanel audit={data?.source_precedence_audit ?? null} />
+
       {/* Move estimates — 4 distinct types per ChatGPT critique */}
       <MoveEstimatesPanel moveEstimates={data?.move_estimates ?? null} />
 
@@ -240,6 +245,9 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         capitalStructure={data?.capital_structure ?? null}
         currentMarketCapM={marketCapM}
       />
+
+      {/* Dilution capacity from SEC narrative (ATM, shelf, warrants) */}
+      <DilutionCapacityPanel dilutionCapacity={data?.dilution_capacity ?? null} />
 
       {/* Probability resolution badge — shows what value drove the rNPV */}
       {data?.probability_resolution && (

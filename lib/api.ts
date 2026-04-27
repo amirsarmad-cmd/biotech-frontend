@@ -497,6 +497,76 @@ export interface EquityValue {
   _provenance: 'sec_edgar';
 }
 
+export interface DilutionWarrant {
+  count: number;
+  exercise_price_usd: number;
+  expiration_date: string | null;
+  category: string | null;
+  _quote?: string;
+  _filing_date?: string;
+}
+
+export interface DilutionCapacity {
+  ticker: string;
+  cik: string;
+  filings_inspected: Array<{
+    form: string;
+    filing_date: string;
+    accession_no: string;
+    primary_doc?: string;
+    summary?: string;
+    extraction_quality?: string;
+    url?: string;
+    _status?: string;
+  }>;
+  atm_facility: {
+    exists: boolean;
+    aggregate_amount_usd: number | null;
+    amount_remaining_usd: number | null;
+    agent?: string;
+    established_date?: string;
+    _filing_date?: string;
+    _filing_form?: string;
+  } | null;
+  shelf_registration: {
+    exists: boolean;
+    aggregate_amount_usd: number | null;
+    amount_remaining_usd: number | null;
+    filed_date?: string;
+    expiration_date?: string;
+    _filing_date?: string;
+  } | null;
+  active_warrants: DilutionWarrant[];
+  active_convertibles: Array<{
+    principal_usd: number;
+    conversion_price_usd: number | null;
+    maturity_date: string | null;
+    interest_rate_pct: number | null;
+  }>;
+  recent_issuances: Array<{
+    shares_issued: number | null;
+    price_per_share_usd: number | null;
+    gross_proceeds_usd: number | null;
+    type: string;
+  }>;
+  estimated_dilution_capacity_usd: number | null;
+  warnings: string[];
+  _provenance: 'sec_edgar_narrative';
+  _from_cache?: boolean;
+}
+
+export interface SourcePrecedenceAudit {
+  overrides_applied: Array<{
+    field: string;
+    from_value: unknown;
+    to_value: unknown;
+    verified_source: string;
+    reason: string;
+  }>;
+  checks_performed: string[];
+  fields_with_no_override: string[];
+}
+
 export interface NPVAnalyzeResponse {
   ticker: string;
   drug_name?: string;
@@ -512,6 +582,10 @@ export interface NPVAnalyzeResponse {
   // Capital-structure-aware equity value (SEC EDGAR balance sheet)
   equity_value?: EquityValue | null;
   capital_structure?: CapitalStructure | null;
+  // Narrative dilution: ATM, shelf, warrants from S-3/424B5/8-K
+  dilution_capacity?: DilutionCapacity | null;
+  // What verified-source values overrode LLM inference
+  source_precedence_audit?: SourcePrecedenceAudit | null;
 }
 
 export async function analyzeNpv(payload: {
