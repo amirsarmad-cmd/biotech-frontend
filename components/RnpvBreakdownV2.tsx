@@ -7,6 +7,7 @@ import { TrendingUp, RefreshCw, Calendar, DollarSign, Users, Building2, AlertTri
 import { analyzeNpv, type NPVAnalyzeResponse, type DrugEconomicsV2 } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 import { VerifiedFactsPanel } from './VerifiedFactsPanel';
+import { MoveEstimatesPanel } from './MoveEstimatesPanel';
 
 interface Props {
   ticker: string;
@@ -228,6 +229,27 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         verifiedFacts={(e2 as unknown as { verified_facts?: typeof e2.verified_facts }).verified_facts ?? null}
         confidenceScore={e2.confidence_score ?? null}
       />
+
+      {/* Move estimates — 4 distinct types per ChatGPT critique */}
+      <MoveEstimatesPanel moveEstimates={data?.move_estimates ?? null} />
+
+      {/* Probability resolution badge — shows what value drove the rNPV */}
+      {data?.probability_resolution && (
+        <div className="rounded-md border border-violet-500/20 bg-violet-500/5 px-3 py-2 text-xs text-violet-100/80">
+          <span className="font-medium">P(approval) used:</span>{' '}
+          <span className="font-mono text-violet-200">
+            {(data.probability_resolution.p_approval_used * 100).toFixed(0)}%
+          </span>{' '}
+          <span className="text-neutral-500">
+            (source: {data.probability_resolution.p_approval_source.replace(/_/g, ' ')})
+          </span>
+          {data.probability_resolution.rnpv_method && (
+            <span className="ml-3 text-neutral-500">
+              · rNPV method: {data.probability_resolution.rnpv_method}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* ─── METHODOLOGY AUDIT: Scenarios + Per-share + Split prob ─── */}
       {(r.scenarios || r.per_share_drug_npv_usd || e2.p_event_occurs != null) && (

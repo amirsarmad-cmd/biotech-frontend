@@ -426,6 +426,36 @@ export interface OptionsImplied {
   put_price?: number;
 }
 
+export interface ProbabilityResolution {
+  p_approval_used: number;
+  p_approval_source:
+    | 'user_override'
+    | 'legacy_alias'
+    | 'catalyst_p_positive_outcome'
+    | 'catalyst_probability_legacy'
+    | string;
+  p_commercial_used: number;
+  p_event_occurs_used: number | null;
+  p_positive_outcome_used: number | null;
+  rnpv_method: 'split_probability' | 'combined_p_approval' | string | null;
+}
+
+export interface MoveEstimates {
+  catalyst_type: string;
+  p_approval_used: number;
+  expected_value_move_pct: number;
+  options_implied_move_pct: number | null;
+  scenario_upside_pct: number;
+  scenario_downside_pct: number;
+  reference_move: {
+    up_pct: number;
+    down_pct: number;
+    calibration_source: string;
+  };
+  interpretation: string;
+  warning: string | null;
+}
+
 export interface NPVAnalyzeResponse {
   ticker: string;
   drug_name?: string;
@@ -434,6 +464,10 @@ export interface NPVAnalyzeResponse {
   economics_v2?: DrugEconomicsV2;             // structured fields
   rnpv?: RnpvFull;                            // year-by-year DCF
   from_cache?: boolean;
+  // Surfaced probability resolution — UI shows which value drove the math
+  probability_resolution?: ProbabilityResolution;
+  // 4 distinct move types — UI should show all separately, not collapse
+  move_estimates?: MoveEstimates | null;
 }
 
 export async function analyzeNpv(payload: {
