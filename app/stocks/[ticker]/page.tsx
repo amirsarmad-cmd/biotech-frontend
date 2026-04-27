@@ -309,8 +309,9 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
           {npv && (
             <NPVSlidersPanel
               ticker={TICKER}
-              drugName={stock.npv_catalyst?.description?.slice(0, 40) ?? null}
-              initial={{
+              marketCapM={stock.market_cap_m}
+              npvCatalyst={stock.npv_catalyst}
+              fallbackInitial={{
                 peakSalesB: npv.peak_sales_b,
                 pApproval: npv.p_approval,
                 pCommercial: npv.p_commercial,
