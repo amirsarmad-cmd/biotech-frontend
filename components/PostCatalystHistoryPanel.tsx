@@ -153,12 +153,9 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
           the actionable target is. */}
       <ThreeTierScoreboard agg={aggV2Q.data} loading={aggV2Q.isLoading} />
 
-      {/* Backtest health banner — surfaces when accuracy is poor or when
-          there's a systematic bias. Honest disclosure to users that the
-          predicted_move_pct number is unreliable in its current form. */}
-      {accuracy && (accuracy.total ?? 0) >= 50 && (
-        <BacktestHealthBanner accuracy={accuracy} />
-      )}
+      {/* (Removed BacktestHealthBanner — its 52.5%/15.9% raw 30D numbers
+          are now covered, with proper context, by the ThreeTierScoreboard
+          above. Showing both was confusing per user feedback.) */}
 
       {/* History table */}
       {historyQ.isLoading ? (
