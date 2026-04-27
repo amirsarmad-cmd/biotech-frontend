@@ -112,9 +112,9 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         </div>
         <div className="flex items-center gap-3 text-sm text-neutral-400">
           <RefreshCw className="h-4 w-4 animate-spin" />
-          Computing structured drug economics — pop × price × penetration, year-by-year cash flow, LOE drop-off…
+          Pulling FDA / ClinicalTrials.gov / Orange Book / SEC EDGAR data and computing structured rNPV…
         </div>
-        <div className="mt-2 text-xs text-neutral-600">First call per drug ~15-30s (LLM); subsequent calls cached.</div>
+        <div className="mt-2 text-xs text-neutral-600">First call per drug ~30-50s (parses official-source filings + LLM economics); subsequent calls cached for 1 day.</div>
       </div>
     );
   }
