@@ -70,7 +70,7 @@ export function InfoTooltip({ text, position = 'top', size = 'sm' }: Props) {
         <span
           className={`absolute z-50 ${positionClasses[position]} pointer-events-none`}
         >
-          <span className="block rounded-md border border-neutral-700 bg-neutral-900 px-3 py-2 text-xs text-neutral-200 shadow-xl whitespace-normal max-w-xs leading-relaxed">
+          <span className="block rounded-md border border-neutral-700 bg-neutral-900 px-4 py-3 text-xs text-neutral-200 shadow-xl whitespace-normal w-[28rem] max-w-[90vw] leading-relaxed">
             {text}
           </span>
           <span className={`absolute h-0 w-0 border-4 ${arrowClasses[position]}`} aria-hidden="true" />

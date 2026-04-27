@@ -471,20 +471,24 @@ function ProvSlider({
 }) {
   const modified = Math.abs(value - aiDefault) > 0.001;
   const valueDisplay = display ? display(value) : `${value}${unit ?? ''}`;
-  const fullDisplay = modified && displayDelta
-    ? displayDelta(value, aiDefault)
-    : valueDisplay;
+  const aiDisplay = display ? display(aiDefault) : `${aiDefault}${unit ?? ''}`;
 
   return (
     <div>
-      {/* Label row */}
+      {/* Label row — ALWAYS shows current value AND AI default */}
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1 text-xs text-neutral-400">
           {label}
           {help && <InfoTooltip text={help} position="top" />}
         </span>
-        <span className={`font-mono text-xs ${modified ? 'text-amber-200' : 'text-neutral-200'}`}>
-          {fullDisplay}
+        <span className="font-mono text-xs">
+          <span className={modified ? 'text-amber-200' : 'text-neutral-200'}>
+            {valueDisplay}
+          </span>
+          <span className="text-neutral-600 mx-1">·</span>
+          <span className="text-cyan-400/80" title="AI-computed default for this drug">
+            AI: {aiDisplay}
+          </span>
         </span>
       </div>
 
