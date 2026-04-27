@@ -220,43 +220,64 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               </div>
             </div>
 
-            {/* All catalysts list */}
+            {/* All catalysts list — sorted by materiality_score descending */}
             {stock.all_catalysts.length > 1 && (
               <div className="mt-4">
                 <div className="text-xs uppercase tracking-wide text-neutral-500 mb-2">
-                  All catalysts ({stock.all_catalysts.length})
+                  All catalysts ({stock.all_catalysts.length}) · ranked by materiality
                 </div>
                 <div className="space-y-2">
-                  {stock.all_catalysts.slice(1).map((c, i) => {
-                    const isNpvAnchor =
-                      stock.npv_catalyst &&
-                      stock.npv_catalyst.type === c.type &&
-                      stock.npv_catalyst.date === c.date;
-                    return (
-                      <div
-                        key={i}
-                        className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm ${
-                          isNpvAnchor
-                            ? 'border-emerald-500/30 bg-emerald-500/5'
-                            : 'border-border bg-bg/40'
-                        }`}
-                      >
-                        <div>
-                          <span className={catalystColor(c.type)}>{c.type}</span>
-                          <span className="mx-2 text-neutral-600">·</span>
-                          <span className="text-neutral-400">{formatDate(c.date)}</span>
-                          {isNpvAnchor && (
-                            <span className="ml-2 rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-300">
-                              NPV anchor
-                            </span>
+                  {[...stock.all_catalysts]
+                    .sort((a, b) => (b.materiality_score ?? 0) - (a.materiality_score ?? 0))
+                    .slice(1)
+                    .map((c, i) => {
+                      const isNpvAnchor =
+                        stock.npv_catalyst &&
+                        stock.npv_catalyst.type === c.type &&
+                        stock.npv_catalyst.date === c.date;
+                      const mat = c.materiality_score;
+                      return (
+                        <div
+                          key={i}
+                          className={`rounded-md border px-3 py-2 text-sm ${
+                            isNpvAnchor
+                              ? 'border-emerald-500/30 bg-emerald-500/5'
+                              : 'border-border bg-bg/40'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <span className={catalystColor(c.type)}>{c.type}</span>
+                              <span className="mx-2 text-neutral-600">·</span>
+                              <span className="text-neutral-400">{formatDate(c.date)}</span>
+                              {isNpvAnchor && (
+                                <span className="ml-2 rounded-sm bg-emerald-500/10 px-1.5 py-0.5 text-xs text-emerald-300">
+                                  NPV anchor
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {mat != null && (
+                                <span
+                                  className="font-mono text-[10px] text-violet-300/80"
+                                  title={c.materiality_rationale ?? ''}
+                                >
+                                  {(mat * 100).toFixed(0)}% mat
+                                </span>
+                              )}
+                              <span className={`font-mono ${probColor(c.probability)}`}>
+                                {(c.probability * 100).toFixed(0)}%
+                              </span>
+                            </div>
+                          </div>
+                          {c.materiality_rationale && (
+                            <div className="mt-1 text-[10px] text-neutral-500">
+                              {c.materiality_rationale}
+                            </div>
                           )}
                         </div>
-                        <div className={`font-mono ${probColor(c.probability)}`}>
-                          {(c.probability * 100).toFixed(0)}%
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
             )}

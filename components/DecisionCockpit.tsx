@@ -207,6 +207,12 @@ export function DecisionCockpit({ ticker, stock }: Props) {
           <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500">
             <Calendar className="h-3 w-3" />
             Main catalyst
+            {cat?.materiality?.score != null && (
+              <span className="ml-auto text-[9px] font-mono text-violet-300/80"
+                    title={`Materiality score: tier ${(cat.materiality.tier_score * 100).toFixed(0)}% × proximity ${(cat.materiality.proximity_score * 100).toFixed(0)}% × probability ${(cat.materiality.probability_score * 100).toFixed(0)}% × binary ${(cat.materiality.binary_score * 100).toFixed(0)}%`}>
+                {(cat.materiality.score * 100).toFixed(0)}% mat
+              </span>
+            )}
           </div>
           <div className="font-medium text-sm text-neutral-200 leading-tight">
             {cat?.type ?? '—'}
@@ -223,6 +229,24 @@ export function DecisionCockpit({ ticker, stock }: Props) {
             )}
             {cat?.indication && <div className="text-[10px] mt-0.5 text-neutral-500">{cat.indication}</div>}
           </div>
+          {/* Materiality bar + rationale */}
+          {cat?.materiality?.rationale && (
+            <div className="pt-1 mt-1 border-t border-border/40 space-y-1">
+              <div className="h-1 rounded-full bg-neutral-800/60 overflow-hidden">
+                <div
+                  className={`h-full transition-all ${
+                    cat.materiality.score >= 0.7 ? 'bg-violet-400' :
+                    cat.materiality.score >= 0.4 ? 'bg-amber-400' :
+                    'bg-neutral-500'
+                  }`}
+                  style={{ width: `${cat.materiality.score * 100}%` }}
+                />
+              </div>
+              <div className="text-[9px] text-neutral-500 leading-snug">
+                {cat.materiality.rationale}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* 2. Fundamental value */}

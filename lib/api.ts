@@ -7,6 +7,17 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
+export interface CatalystMateriality {
+  score: number;            // 0-1 composite
+  tier_score: number;
+  tier_label: string;       // 'FDA decision' | 'Phase 3 readout' | etc
+  proximity_score: number;
+  probability_score: number;
+  binary_score: number;
+  days_out: string;
+  rationale: string;        // human-readable explanation
+}
+
 export interface Catalyst {
   type: string;
   date: string;
@@ -16,6 +27,10 @@ export interface Catalyst {
   indication?: string;
   phase?: string;
   source?: string;
+  // Materiality score with explanation — surfaced in DecisionCockpit
+  materiality?: CatalystMateriality;
+  materiality_score?: number;
+  materiality_rationale?: string;
 }
 
 export interface Stock {
