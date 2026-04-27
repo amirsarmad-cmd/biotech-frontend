@@ -10,6 +10,15 @@ interface Props {
   ticker: string;
   aiProb?: number;
   daysToCatalyst?: number;
+  // Optional guardrail inputs — if provided, panel shows divergence
+  // warnings between fundamental valuation and options pricing
+  // (ChatGPT pass-4 critique: 'strategy panel should warn when valuation
+  // disagrees with options pricing, not silently recommend').
+  rnpvUpsidePct?: number | null;       // from /analyze/npv: rnpv-implied upside if positive outcome
+  optionsImpliedPct?: number | null;   // straddle-implied move % at primary expiry
+  catalystType?: string;
+  catalystDate?: string;
+  rnpvDataConfidence?: number | null;  // 0-1; <0.5 means warn that valuation is fragile
 }
 
 interface Technicals {
@@ -66,12 +75,52 @@ interface StrategyResponse {
   recommendations: Recommendation[];
 }
 
-export function StrategyPanel({ ticker, aiProb = 0.7, daysToCatalyst = 90 }: Props) {
+export function StrategyPanel({ ticker, aiProb = 0.7, daysToCatalyst = 90, rnpvUpsidePct, optionsImpliedPct, rnpvDataConfidence }: Props) {
   const q = useQuery({
     queryKey: ['strategies', ticker, aiProb, daysToCatalyst],
     queryFn: () => getStrategies(ticker, { ai_prob: aiProb, days_to_catalyst: daysToCatalyst }) as Promise<StrategyResponse>,
     staleTime: 5 * 60_000,
   });
+
+  // ─── Guardrail computation ─────────────────────────────────────────
+  // Compare what fundamentals predict vs what options price.
+  // Three checks:
+  //   1. DIVERGENCE: rNPV says big move possible, options pricing tiny one
+  //   2. OPTIONS-RICH: options pricing bigger move than rNPV justifies
+  //   3. LOW CONFIDENCE: rNPV data confidence below 50%, valuation is fragile
+  // Only run when both upside and implied move are present.
+  const guardrails: Array<{ kind: 'red' | 'amber'; title: string; body: string }> = [];
+
+  if (rnpvUpsidePct != null && optionsImpliedPct != null && optionsImpliedPct > 0) {
+    const ratio = Math.abs(rnpvUpsidePct) / optionsImpliedPct;
+    if (ratio > 3 && rnpvUpsidePct > 50) {
+      guardrails.push({
+        kind: 'red',
+        title: 'Fundamentals/options divergence',
+        body: `rNPV implies ${rnpvUpsidePct >= 0 ? '+' : ''}${rnpvUpsidePct.toFixed(0)}% upside on positive outcome, ` +
+              `but options price only ±${optionsImpliedPct.toFixed(0)}% move. Either the market disagrees ` +
+              `with your valuation, or there's an opportunity. Re-check the rNPV inputs before sizing up.`,
+      });
+    } else if (ratio < 0.5 && optionsImpliedPct > 30) {
+      guardrails.push({
+        kind: 'amber',
+        title: 'Options pricing exceeds fundamental upside',
+        body: `Options price ±${optionsImpliedPct.toFixed(0)}% move, but rNPV justifies only ` +
+              `${rnpvUpsidePct >= 0 ? '+' : ''}${rnpvUpsidePct.toFixed(0)}%. ` +
+              `Long options likely overpriced — consider selling premium instead.`,
+      });
+    }
+  }
+
+  if (rnpvDataConfidence != null && rnpvDataConfidence < 0.5) {
+    guardrails.push({
+      kind: 'amber',
+      title: 'Valuation confidence is low',
+      body: `rNPV is built on data with ${(rnpvDataConfidence * 100).toFixed(0)}% confidence. ` +
+            `Several inputs (typically pricing, peak penetration, or patent timing) lack hard sources. ` +
+            `Treat the rNPV upside as a wide range, not a point estimate.`,
+    });
+  }
 
   if (q.isLoading) {
     return (
@@ -143,6 +192,31 @@ export function StrategyPanel({ ticker, aiProb = 0.7, daysToCatalyst = 90 }: Pro
           {technicals.pos_52w != null && (
             <span className="ml-3 text-neutral-600">({(technicals.pos_52w * 100).toFixed(0)}% of range)</span>
           )}
+        </div>
+      )}
+
+      {/* Guardrail banner — shown when fundamentals disagree with options pricing
+          or when rNPV confidence is low. Surfaces BEFORE strategy recommendations
+          because users should reconsider the trade thesis when these flags fire. */}
+      {guardrails.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {guardrails.map((g, i) => (
+            <div
+              key={i}
+              className={`rounded-md border px-3 py-2 ${
+                g.kind === 'red'
+                  ? 'border-red-500/40 bg-red-500/5'
+                  : 'border-amber-500/40 bg-amber-500/5'
+              }`}
+            >
+              <div className={`text-xs font-medium uppercase tracking-wide ${
+                g.kind === 'red' ? 'text-red-300' : 'text-amber-300'
+              }`}>
+                ⚠ {g.title}
+              </div>
+              <div className="mt-1 text-xs text-neutral-300 leading-snug">{g.body}</div>
+            </div>
+          ))}
         </div>
       )}
 

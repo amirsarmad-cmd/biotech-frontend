@@ -452,7 +452,9 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               </span>
             </summary>
             <div className="border-t border-border/40 p-4 space-y-6">
-              {/* Trade Strategy */}
+              {/* Trade Strategy — receives valuation + options data so it can
+                  flag divergence (ChatGPT pass-4: 'strategy panel should warn
+                  when fundamentals say one thing and options price another'). */}
               <StrategyPanel
                 ticker={TICKER}
                 aiProb={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
@@ -460,6 +462,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
                   const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
                   return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
                 })()}
+                rnpvUpsidePct={npv?.upside_pct ?? null}
+                optionsImpliedPct={stock.options_implied?.implied_move_pct ?? null}
+                catalystType={stock.npv_catalyst?.type ?? stock.primary_catalyst.type}
+                catalystDate={stock.npv_catalyst?.date ?? stock.primary_catalyst.date}
               />
 
               {/* Investment Calculator */}
