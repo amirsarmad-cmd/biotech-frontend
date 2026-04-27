@@ -7,7 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import {
   getStockDetail, getStockNews, getStockAnalyst, getStockSocial,
   getFundamentals, getHistory, getStrategies,
-  type StockDetail, type NPVFull,
+  type StockDetail, type NPVFull, type NPVAnalyzeResponse,
 } from '@/lib/api';
 import { formatCurrency, formatMarketCap, formatDate, daysUntil, catalystColor, probColor, formatPercent } from '@/lib/utils';
 import { NPVBreakdown } from '@/components/NPVBreakdown';
@@ -48,6 +48,10 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
   const { ticker } = use(params);
   const TICKER = ticker.toUpperCase();
   const [period, setPeriod] = useState<Period>('2y');
+  // V2 rNPV result lifted from RnpvBreakdownV2 so StrategyPanel guardrail
+  // can use the structured upside (typically 100-300%) instead of the
+  // legacy peak-sales-multiple upside (often 1000%+) which is wildly inflated.
+  const [rnpvV2, setRnpvV2] = useState<NPVAnalyzeResponse | null>(null);
 
   const stockQ = useQuery({
     queryKey: ['stock', TICKER],
@@ -299,6 +303,7 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               ticker={TICKER}
               marketCapM={stock.market_cap_m}
               npvCatalyst={stock.npv_catalyst}
+              onData={setRnpvV2}
             />
           </div>
 
@@ -452,9 +457,14 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               </span>
             </summary>
             <div className="border-t border-border/40 p-4 space-y-6">
-              {/* Trade Strategy — receives valuation + options data so it can
+              {/* Trade Strategy — receives V2 rNPV upside + options data so it can
                   flag divergence (ChatGPT pass-4: 'strategy panel should warn
-                  when fundamentals say one thing and options price another'). */}
+                  when fundamentals say one thing and options price another').
+
+                  Switched from legacy npv.upside_pct to rNPV V2 because legacy
+                  is peak-sales × multiple which routinely produces 1000%+
+                  upside numbers that swamp the divergence ratio. V2 uses a
+                  structured DCF with risk adjustment — typically 50-300% range. */}
               <StrategyPanel
                 ticker={TICKER}
                 aiProb={stock.npv_catalyst?.probability ?? stock.primary_catalyst.probability}
@@ -462,10 +472,17 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
                   const dt = new Date(stock.npv_catalyst?.date || stock.primary_catalyst.date);
                   return Math.max(1, Math.round((dt.getTime() - Date.now()) / 86400000));
                 })()}
-                rnpvUpsidePct={npv?.upside_pct ?? null}
+                rnpvUpsidePct={(() => {
+                  // Prefer rNPV V2 fundamental_impact_pct (rNPV / market cap × 100)
+                  // over the legacy peak-sales multiplier upside.
+                  const v2Impact = rnpvV2?.rnpv?.fundamental_impact_pct;
+                  if (typeof v2Impact === 'number' && v2Impact > 0) return v2Impact;
+                  return npv?.upside_pct ?? null;  // fallback: legacy
+                })()}
                 optionsImpliedPct={stock.options_implied?.implied_move_pct ?? null}
                 catalystType={stock.npv_catalyst?.type ?? stock.primary_catalyst.type}
                 catalystDate={stock.npv_catalyst?.date ?? stock.primary_catalyst.date}
+                rnpvDataConfidence={rnpvV2?.economics_v2?.confidence_score ?? null}
               />
 
               {/* Investment Calculator */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, ReferenceLine } from 'recharts';
 import { TrendingUp, RefreshCw, Calendar, DollarSign, Users, Building2, AlertTriangle, Info } from 'lucide-react';
@@ -25,6 +25,11 @@ interface Props {
     indication?: string;
     phase?: string;
   } | null;
+  // Optional callback invoked whenever the NPV query data changes.
+  // Used by the parent page to lift V2 valuation into other panels
+  // (e.g., StrategyPanel guardrails compare V2 upside vs options-implied move,
+  // not legacy peak-sales-multiple upside which is wildly inflated).
+  onData?: (data: NPVAnalyzeResponse) => void;
 }
 
 const fmtM = (n: number | null | undefined): string => {
@@ -70,7 +75,7 @@ const MODALITY_LABEL: Record<string, string> = {
   other: 'Other',
 };
 
-export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
+export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst, onData }: Props) {
   const [forceRefresh, setForceRefresh] = useState(false);
   const [discountRate, setDiscountRate] = useState(0.10);
   const [dilutionPct, setDilutionPct] = useState(0);  // 0-50%, addresses methodology audit #2
@@ -103,6 +108,13 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
     staleTime: 60 * 60_000, // 1 hour client-side
     enabled: !!ticker && !!marketCapM && marketCapM > 0,
   });
+
+  // Lift V2 NPV result up to parent so other panels (StrategyPanel guardrails,
+  // future cockpit refinements) can use the structured rNPV upside instead
+  // of the legacy peak-sales-multiple NPV. Fires whenever data changes.
+  useEffect(() => {
+    if (q.data && onData) onData(q.data);
+  }, [q.data, onData]);
 
   if (q.isLoading) {
     return (
