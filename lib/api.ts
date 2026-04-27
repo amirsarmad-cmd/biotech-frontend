@@ -24,6 +24,7 @@ export interface Catalyst {
   probability: number;
   description: string;
   drug_name?: string;
+  canonical_drug_name?: string;  // normalized key for grouping multi-asset programs
   indication?: string;
   phase?: string;
   source?: string;

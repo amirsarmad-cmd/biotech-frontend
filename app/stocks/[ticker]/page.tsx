@@ -31,6 +31,7 @@ import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
 import { OptionsImpliedPanel } from '@/components/OptionsImpliedPanel';
 import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
 import { DecisionCockpit } from '@/components/DecisionCockpit';
+import AssetBreakdownPanel from '@/components/AssetBreakdownPanel';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -300,6 +301,15 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
               npvCatalyst={stock.npv_catalyst}
             />
           </div>
+
+          {/* Multi-asset breakdown for platform companies (ChatGPT pass-4 #11)
+              Hidden if only 1 distinct drug program. */}
+          <AssetBreakdownPanel
+            ticker={TICKER}
+            marketCapM={stock.market_cap_m}
+            currentPrice={stock.current_price}
+            catalysts={stock.all_catalysts}
+          />
 
           {/* Section 1: Legacy peak-sales-multiple NPV — collapsed by default (sanity-check only) */}
           <details className="rounded-lg border border-border/40 bg-bg/30">
