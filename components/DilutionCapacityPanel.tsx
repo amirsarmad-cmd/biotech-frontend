@@ -67,7 +67,7 @@ export function DilutionCapacityPanel({ dilutionCapacity }: Props) {
       {/* ATM + Shelf in 2-card row */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {dc.atm_facility?.exists && (
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-1">
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wide text-amber-300">ATM facility</div>
             <div className="font-mono text-base text-amber-100">
               {fmtUSD(dc.atm_facility.amount_remaining_usd ?? dc.atm_facility.aggregate_amount_usd)}
@@ -83,11 +83,17 @@ export function DilutionCapacityPanel({ dilutionCapacity }: Props) {
                 {dc.atm_facility._filing_form ?? 'filing'} dated {dc.atm_facility._filing_date}
               </div>
             )}
+            {/* Quote anchor — visible by default per ChatGPT pass-3 critique #5 */}
+            {dc.atm_facility._quote && (
+              <div className="mt-1 rounded-sm border-l-2 border-amber-400/40 bg-bg/40 px-2 py-1.5 text-[10px] italic text-neutral-300 leading-relaxed">
+                <span className="text-amber-400/70 not-italic">&ldquo;</span>{dc.atm_facility._quote}<span className="text-amber-400/70 not-italic">&rdquo;</span>
+              </div>
+            )}
           </div>
         )}
 
         {dc.shelf_registration?.exists && (
-          <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-3 space-y-1">
+          <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-3 space-y-1.5">
             <div className="text-[10px] uppercase tracking-wide text-violet-300">Shelf registration</div>
             <div className="font-mono text-base text-violet-100">
               {fmtUSD(dc.shelf_registration.amount_remaining_usd ?? dc.shelf_registration.aggregate_amount_usd)}
@@ -105,6 +111,12 @@ export function DilutionCapacityPanel({ dilutionCapacity }: Props) {
                 Filed {dc.shelf_registration._filing_date}
               </div>
             )}
+            {/* Quote anchor — visible by default */}
+            {dc.shelf_registration._quote && (
+              <div className="mt-1 rounded-sm border-l-2 border-violet-400/40 bg-bg/40 px-2 py-1.5 text-[10px] italic text-neutral-300 leading-relaxed">
+                <span className="text-violet-400/70 not-italic">&ldquo;</span>{dc.shelf_registration._quote}<span className="text-violet-400/70 not-italic">&rdquo;</span>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -115,17 +127,24 @@ export function DilutionCapacityPanel({ dilutionCapacity }: Props) {
           <div className="mb-2 text-[10px] uppercase tracking-wide text-neutral-500">
             Outstanding warrants
           </div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {dc.active_warrants.slice(0, 5).map((w, i) => (
-              <div key={i} className="flex items-center gap-3 text-xs">
-                <span className="font-mono text-neutral-300">{fmtCount(w.count)}</span>
-                <span className="text-neutral-500">@</span>
-                <span className="font-mono text-amber-300">${w.exercise_price_usd?.toFixed(2)}</span>
-                {w.expiration_date && (
-                  <span className="text-[10px] text-neutral-500">exp {w.expiration_date}</span>
-                )}
-                {w.category && (
-                  <span className="text-[10px] text-neutral-600">· {w.category}</span>
+              <div key={i} className="space-y-1">
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="font-mono text-neutral-300">{fmtCount(w.count)}</span>
+                  <span className="text-neutral-500">@</span>
+                  <span className="font-mono text-amber-300">${w.exercise_price_usd?.toFixed(2)}</span>
+                  {w.expiration_date && (
+                    <span className="text-[10px] text-neutral-500">exp {w.expiration_date}</span>
+                  )}
+                  {w.category && (
+                    <span className="text-[10px] text-neutral-600">· {w.category}</span>
+                  )}
+                </div>
+                {w._quote && (
+                  <div className="rounded-sm border-l-2 border-neutral-700 bg-bg/40 px-2 py-1 text-[10px] italic text-neutral-400 leading-relaxed">
+                    &ldquo;{w._quote}&rdquo;
+                  </div>
                 )}
               </div>
             ))}

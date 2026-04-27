@@ -11,6 +11,7 @@ import { MoveEstimatesPanel } from './MoveEstimatesPanel';
 import { EquityValuePanel } from './EquityValuePanel';
 import { DilutionCapacityPanel } from './DilutionCapacityPanel';
 import { SourcePrecedenceAuditPanel } from './SourcePrecedenceAuditPanel';
+import { ConfidenceBreakdownPanel } from './ConfidenceBreakdownPanel';
 
 interface Props {
   ticker: string;
@@ -232,6 +233,12 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
         verifiedFacts={(e2 as unknown as { verified_facts?: typeof e2.verified_facts }).verified_facts ?? null}
         confidenceScore={e2.confidence_score ?? null}
       />
+
+      {/* Confidence by category — splits the rolled-up score into 6 areas
+          (clinical / regulatory / market / pricing / penetration / dilution)
+          per ChatGPT pass-4 critique #6. Lets users see WHICH inputs to
+          trust vs question instead of a blended single number. */}
+      <ConfidenceBreakdownPanel economicsV2={e2} />
 
       {/* Source-precedence audit — what verified values overrode LLM inference */}
       <SourcePrecedenceAuditPanel audit={data?.source_precedence_audit ?? null} />

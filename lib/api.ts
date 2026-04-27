@@ -374,6 +374,17 @@ export interface DrugEconomicsV2 {
   // Provenance & confidence — per-field source tagging
   provenance?: Record<string, ProvenanceEntry>;
   confidence_score?: number | null;  // 0-1 rollup across critical fields
+  // Per-category confidence breakdown — ChatGPT pass-4 critique #6
+  // For each category, score is 0-1 average over (high=1, med=0.6, low=0.2,
+  // missing=0). n_populated/n_fields tells you how complete the data is.
+  confidence_breakdown?: {
+    clinical?: { score: number; n_fields: number; n_populated: number };
+    regulatory?: { score: number; n_fields: number; n_populated: number };
+    market?: { score: number; n_fields: number; n_populated: number };
+    pricing?: { score: number; n_fields: number; n_populated: number };
+    penetration?: { score: number; n_fields: number; n_populated: number };
+    dilution?: { score: number; n_fields: number; n_populated: number };
+  } | null;
   verified_facts?: VerifiedFacts;     // FDA + CT.gov anchored facts
   _from_cache?: boolean;
   error?: string | null;
@@ -529,6 +540,7 @@ export interface DilutionCapacity {
     established_date?: string;
     _filing_date?: string;
     _filing_form?: string;
+    _quote?: string;
   } | null;
   shelf_registration: {
     exists: boolean;
@@ -537,6 +549,7 @@ export interface DilutionCapacity {
     filed_date?: string;
     expiration_date?: string;
     _filing_date?: string;
+    _quote?: string;
   } | null;
   active_warrants: DilutionWarrant[];
   active_convertibles: Array<{
@@ -544,12 +557,14 @@ export interface DilutionCapacity {
     conversion_price_usd: number | null;
     maturity_date: string | null;
     interest_rate_pct: number | null;
+    _quote?: string;
   }>;
   recent_issuances: Array<{
     shares_issued: number | null;
     price_per_share_usd: number | null;
     gross_proceeds_usd: number | null;
     type: string;
+    _quote?: string;
   }>;
   estimated_dilution_capacity_usd: number | null;
   warnings: string[];
