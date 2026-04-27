@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Target, TrendingUp, TrendingDown, AlertTriangle, ShieldCheck, Sparkles, Calendar, ChevronRight } from 'lucide-react';
 import {
@@ -9,6 +10,7 @@ import {
   type StockDetail,
 } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
+import { CatalystFreshnessBadge, CatalystOverrideModal } from './CatalystOverridePanel';
 
 interface Props {
   ticker: string;
@@ -43,6 +45,9 @@ const fmtPct = (v: number | null | undefined) => v == null ? '—' : `${v >= 0 ?
  */
 export function DecisionCockpit({ ticker, stock }: Props) {
   const npvCatalyst = stock.npv_catalyst ?? stock.primary_catalyst ?? null;
+  // Override modal state — opened from the freshness badge
+  const [overrideOpen, setOverrideOpen] = useState(false);
+
   const marketCapM = stock.market_cap_m ?? null;
 
   const npvQ = useQuery({
@@ -229,6 +234,14 @@ export function DecisionCockpit({ ticker, stock }: Props) {
             )}
             {cat?.indication && <div className="text-[10px] mt-0.5 text-neutral-500">{cat.indication}</div>}
           </div>
+          {/* Data-provenance badge — answers 'where did this data come from
+              and is it stale?' Click → opens override modal. */}
+          <div className="pt-1">
+            <CatalystFreshnessBadge
+              health={(cat as Catalyst | null)?.data_health ?? null}
+              onClickEdit={() => setOverrideOpen(true)}
+            />
+          </div>
           {/* Materiality bar + rationale */}
           {cat?.materiality?.rationale && (
             <div className="pt-1 mt-1 border-t border-border/40 space-y-1">
@@ -409,6 +422,26 @@ export function DecisionCockpit({ ticker, stock }: Props) {
           </a>
         </div>
       </div>
+
+      {/* Manual catalyst override modal — opened from the freshness badge.
+          Lets the user fix bad/stale catalyst data without waiting for the
+          next seeder run. Marks the row is_manual_override=TRUE so it's
+          never reverted by automation. */}
+      <CatalystOverrideModal
+        ticker={ticker}
+        open={overrideOpen}
+        onClose={() => setOverrideOpen(false)}
+        existing={cat ? {
+          id: (cat as Catalyst).data_health?.catalyst_id ?? null,
+          type: cat.type,
+          date: cat.date,
+          drug_name: cat.drug_name,
+          indication: cat.indication,
+          phase: cat.phase,
+          description: cat.description,
+          probability: cat.probability,
+        } : undefined}
+      />
     </div>
   );
 }

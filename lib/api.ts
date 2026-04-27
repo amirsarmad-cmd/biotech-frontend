@@ -18,6 +18,15 @@ export interface CatalystMateriality {
   rationale: string;        // human-readable explanation
 }
 
+export interface CatalystDataHealth {
+  source: string | null;            // 'gemini' | 'openai' | 'anthropic' | 'manual' | etc.
+  source_url?: string | null;
+  last_updated: string;             // ISO timestamp
+  freshness_hours: number | null;   // hours since last_updated
+  is_manual_override: boolean;
+  catalyst_id: number | null;
+}
+
 export interface Catalyst {
   type: string;
   date: string;
@@ -28,6 +37,9 @@ export interface Catalyst {
   indication?: string;
   phase?: string;
   source?: string;
+  // Provenance for the catalyst — when refreshed, by what source, manual flag.
+  // Per user feedback: 'I cannot tell if data is stale or where it came from.'
+  data_health?: CatalystDataHealth | null;
   // Materiality score with explanation — surfaced in DecisionCockpit
   materiality?: CatalystMateriality;
   materiality_score?: number;
@@ -859,4 +871,56 @@ export async function chatExplain(req: ChatRequest): Promise<ChatResponse> {
     body: JSON.stringify(req),
   });
 }
+
+
+// ────────────────────────────────────────────────────────────
+// Manual catalyst override + ingestion health
+// ────────────────────────────────────────────────────────────
+
+export interface ManualCatalystPayload {
+  ticker: string;
+  catalyst_type: string;
+  catalyst_date: string;          // YYYY-MM-DD
+  drug_name?: string | null;
+  indication?: string | null;
+  phase?: string | null;
+  description?: string | null;
+  probability?: number | null;    // 0-1
+  source_url?: string | null;
+}
+
+export interface IngestionLogEntry {
+  attempt_at: string | null;
+  source: string;
+  status: 'success' | 'no_data' | 'error' | 'rate_limited' | string;
+  catalysts_found: number;
+  error_class: string | null;
+  error_message: string | null;
+  duration_ms: number | null;
+}
+
+export async function addManualCatalyst(payload: ManualCatalystPayload): Promise<{ id: number; ticker: string; is_manual_override: boolean }> {
+  return apiFetch(`/admin/catalysts/manual`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function editCatalyst(catalystId: number, payload: ManualCatalystPayload): Promise<{ id: number; ticker: string }> {
+  return apiFetch(`/admin/catalysts/${catalystId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function softDeleteCatalyst(catalystId: number): Promise<{ id: number; ticker: string; status: string }> {
+  return apiFetch(`/admin/catalysts/${catalystId}`, { method: 'DELETE' });
+}
+
+export async function getCatalystIngestionLog(ticker: string, limit = 20): Promise<{ ticker: string; attempts: IngestionLogEntry[] }> {
+  return apiFetch(`/admin/catalysts/${encodeURIComponent(ticker)}/ingestion-log?limit=${limit}`);
+}
+
 
