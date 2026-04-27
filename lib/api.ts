@@ -456,6 +456,47 @@ export interface MoveEstimates {
   warning: string | null;
 }
 
+export interface CapitalStructure {
+  ticker: string;
+  cik: string;
+  as_of_filing: string | null;
+  cash_and_equivalents: number;
+  short_term_investments: number;
+  total_cash: number;
+  long_term_debt: number;
+  current_debt: number;
+  total_debt: number;
+  net_debt: number;
+  shares_outstanding: number | null;
+  quarterly_burn_usd: number | null;
+  monthly_burn_usd: number | null;
+  cash_runway_months: number | null;
+  needs_financing_within_12mo: boolean;
+  _source: 'sec_edgar';
+  _filings?: Record<string, { tag: string; taxonomy: string; end?: string; filed?: string; form?: string }>;
+}
+
+export interface EquityValue {
+  rnpv_m: number;
+  total_cash_m: number;
+  total_debt_m: number;
+  net_cash_adjustment_m: number;
+  equity_value_pre_dilution_m: number;
+  projected_dilution_pct: number;
+  projected_raise_m: number;
+  dilution_source: 'user_override' | 'runway_projection' | 'none' | string;
+  financing_discount_assumed_pct: number;
+  equity_value_post_dilution_m: number;
+  shares_outstanding_m: number | null;
+  per_share_value_usd: number | null;
+  monthly_burn_m: number | null;
+  cash_runway_months: number | null;
+  needs_financing_within_12mo: boolean;
+  as_of_filing: string | null;
+  warnings: string[];
+  _provenance: 'sec_edgar';
+}
+
 export interface NPVAnalyzeResponse {
   ticker: string;
   drug_name?: string;
@@ -468,6 +509,9 @@ export interface NPVAnalyzeResponse {
   probability_resolution?: ProbabilityResolution;
   // 4 distinct move types — UI should show all separately, not collapse
   move_estimates?: MoveEstimates | null;
+  // Capital-structure-aware equity value (SEC EDGAR balance sheet)
+  equity_value?: EquityValue | null;
+  capital_structure?: CapitalStructure | null;
 }
 
 export async function analyzeNpv(payload: {

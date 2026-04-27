@@ -8,6 +8,7 @@ import { analyzeNpv, type NPVAnalyzeResponse, type DrugEconomicsV2 } from '@/lib
 import { InfoTooltip } from './tooltips';
 import { VerifiedFactsPanel } from './VerifiedFactsPanel';
 import { MoveEstimatesPanel } from './MoveEstimatesPanel';
+import { EquityValuePanel } from './EquityValuePanel';
 
 interface Props {
   ticker: string;
@@ -232,6 +233,13 @@ export function RnpvBreakdownV2({ ticker, marketCapM, npvCatalyst }: Props) {
 
       {/* Move estimates — 4 distinct types per ChatGPT critique */}
       <MoveEstimatesPanel moveEstimates={data?.move_estimates ?? null} />
+
+      {/* Capital-structure adjusted equity value (SEC EDGAR balance sheet) */}
+      <EquityValuePanel
+        equityValue={data?.equity_value ?? null}
+        capitalStructure={data?.capital_structure ?? null}
+        currentMarketCapM={marketCapM}
+      />
 
       {/* Probability resolution badge — shows what value drove the rNPV */}
       {data?.probability_resolution && (
