@@ -102,14 +102,21 @@ export default function AssetBreakdownPanel({ ticker, marketCapM, currentPrice, 
   // If only 1 asset, panel adds no info — hide it
   if (assets.length < 2) return null;
 
-  // Aggregate per-share contributions for the stacked total
-  const perShareValues: Array<{ asset: AssetGroup; perShare: number | null; loading: boolean; error: boolean }> = assets.map((a, i) => {
+  // Aggregate per-share contributions for the stacked total.
+  // Field path: response.rnpv.per_share_drug_npv_usd (basic) — this is the
+  // per-share asset value at the user's p_approval. We could also read
+  // rnpv.per_share_after_dilution_usd if dilution_assumed_pct was passed.
+  // Note: response.economics_v2 has confidence/breakdown but NOT per-share
+  // valuation — that lives on response.rnpv.
+  const perShareValues: Array<{ asset: AssetGroup; perShare: number | null; rnpvM: number | null; loading: boolean; error: boolean }> = assets.map((a, i) => {
     const q = npvQueries[i];
-    const ev = q.data?.economics_v2 as { equity_value_per_share_diluted_usd?: number; equity_value_per_share_usd?: number } | undefined;
-    const ps = ev?.equity_value_per_share_diluted_usd ?? ev?.equity_value_per_share_usd ?? null;
+    const rnpv = q.data?.rnpv;
+    const ps = rnpv?.per_share_after_dilution_usd ?? rnpv?.per_share_drug_npv_usd ?? null;
+    const rm = rnpv?.rnpv_m ?? null;
     return {
       asset: a,
       perShare: typeof ps === 'number' ? ps : null,
+      rnpvM: typeof rm === 'number' ? rm : null,
       loading: q.isLoading || q.isFetching,
       error: q.isError,
     };
@@ -148,7 +155,7 @@ export default function AssetBreakdownPanel({ ticker, marketCapM, currentPrice, 
 
         {/* Per-asset rows */}
         <div className="space-y-2">
-          {perShareValues.map(({ asset, perShare, loading, error }) => {
+          {perShareValues.map(({ asset, perShare, rnpvM, loading, error }) => {
             const cat = asset.primaryCatalyst;
             const ratio = totalPerShare > 0 && perShare ? (perShare / totalPerShare) * 100 : 0;
             return (
@@ -176,8 +183,13 @@ export default function AssetBreakdownPanel({ ticker, marketCapM, currentPrice, 
                       <>
                         <div className="font-mono text-emerald-300 text-sm">
                           ${perShare.toFixed(2)}
+                          <span className="text-[9px] text-neutral-500 ml-1">/share</span>
                         </div>
-                        <div className="text-[9px] text-neutral-500">/share</div>
+                        {rnpvM != null && rnpvM > 0 && (
+                          <div className="text-[9px] text-neutral-500 font-mono">
+                            rNPV ${(rnpvM / 1000).toFixed(2)}B
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
