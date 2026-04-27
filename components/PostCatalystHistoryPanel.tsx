@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { History, TrendingUp, TrendingDown, Check, X, Minus, RefreshCw, Info } from 'lucide-react';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getBacktestAggregateV2, type AggregateV2Response } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 
 interface PostCatalystOutcome {
@@ -78,6 +78,14 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
     staleTime: 10 * 60_000,
   });
 
+  // Three-tier scoreboard: all-events (raw 30D, noisy) vs tradeable subset
+  // (3D abnormal-vs-XBI, real edge after abstention).
+  const aggV2Q = useQuery({
+    queryKey: ['post-catalyst-aggregate-v2'],
+    queryFn: () => getBacktestAggregateV2(),
+    staleTime: 10 * 60_000,
+  });
+
   const outcomes = historyQ.data?.outcomes || [];
   const accuracy = accuracyQ.data;
 
@@ -121,8 +129,8 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
         </button>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* Per-ticker stats row */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Stat
           label={`This ticker · ${tickerStats?.total || 0} catalysts`}
           value={tickerStats?.direction_pct != null ? `${tickerStats.direction_pct.toFixed(0)}%` : '—'}
@@ -133,18 +141,17 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
           value={tickerStats?.avg_err != null ? `${tickerStats.avg_err.toFixed(1)}%` : '—'}
           sub="|predicted − actual_30d|"
         />
-        <Stat
-          label={`System-wide · ${accuracy?.total || 0} catalysts`}
-          value={accuracy?.direction_accuracy_pct != null ? `${accuracy.direction_accuracy_pct}%` : '—'}
-          sub={`${accuracy?.direction_hits || 0} direction hits`}
-          accent="violet"
-        />
-        <Stat
-          label="System-wide avg error"
-          value={accuracy?.avg_abs_error_pct != null ? `${accuracy.avg_abs_error_pct.toFixed(1)}%` : '—'}
-          sub="|predicted − actual_30d|"
-        />
       </div>
+
+      {/* System-wide three-tier scoreboard. Replaces the broken single 52.5%
+          stat. After user critique that scoring every catalyst the same way
+          masks true model edge, we now show:
+            All-event raw 30D     — noise floor (≈50%)
+            Tradeable subset 3D   — model's actual edge after abstention
+            Coverage              — fraction of all events that were tradeable
+          The interpretation footer explains what each number means and what
+          the actionable target is. */}
+      <ThreeTierScoreboard agg={aggV2Q.data} loading={aggV2Q.isLoading} />
 
       {/* Backtest health banner — surfaces when accuracy is poor or when
           there's a systematic bias. Honest disclosure to users that the
@@ -329,6 +336,155 @@ function BacktestHealthBanner({ accuracy }: { accuracy: AccuracyResp }) {
           <span className="text-amber-300">⚠ </span>{biasNote}
         </div>
       )}
+    </div>
+  );
+}
+
+
+// ────────────────────────────────────────────────────────────
+// Three-tier backtest scoreboard
+// ────────────────────────────────────────────────────────────
+// Replaces the broken single '52.5% direction accuracy across 358 events'
+// stat. After user critique:
+//   'Chasing 70% across all catalysts is overfitting. Real target is
+//    70%+ on tradeable subset with abstention.'
+
+function ThreeTierScoreboard({ agg, loading }: { agg: AggregateV2Response | undefined; loading: boolean }) {
+  if (loading || !agg) {
+    return (
+      <div className="rounded-md border border-border bg-bg-card/40 p-3">
+        <div className="text-[10px] uppercase tracking-wide text-neutral-500">System-wide accuracy</div>
+        <div className="text-xs text-neutral-500 mt-1">Loading scoreboard…</div>
+      </div>
+    );
+  }
+
+  const all = agg.all_events;
+  const tr = agg.tradeable_events;
+
+  // Color the tradeable accuracy: ≥65% green, ≥55% amber, <55% red
+  const trAccent: 'emerald' | 'amber' | 'red' | 'neutral' = (() => {
+    const v = tr.direction_accuracy_pct;
+    if (v == null) return 'neutral';
+    if (v >= 65) return 'emerald';
+    if (v >= 55) return 'amber';
+    return 'red';
+  })();
+  const trColor =
+    trAccent === 'emerald' ? 'text-emerald-300 border-emerald-500/40' :
+      trAccent === 'amber' ? 'text-amber-300 border-amber-500/40' :
+        trAccent === 'red' ? 'text-red-300 border-red-500/40' :
+          'text-neutral-300 border-border';
+
+  // Coverage color: 25-40% is the actionable band
+  const cv = tr.coverage_pct ?? 0;
+  const cvColor =
+    cv >= 25 && cv <= 40 ? 'text-emerald-300' :
+      cv > 40 ? 'text-amber-300' :
+        'text-orange-300';
+
+  return (
+    <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-violet-300">
+        System-wide backtest scoreboard
+        <InfoTooltip
+          text="A single 'system-wide accuracy' number is misleading because it averages weak/no-edge events with high-conviction setups. This three-tier breakdown shows the noise floor (all-events) vs the model's actual edge on the tradeable subset (where abstention rules let signals through)."
+        />
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* All events — raw 30D direction (noise floor) */}
+        <div className="rounded border border-border bg-bg-card p-3">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500">All events</div>
+          <div className="text-2xl font-mono font-medium text-neutral-200 mt-1">
+            {all.direction_accuracy_pct != null ? `${all.direction_accuracy_pct}%` : '—'}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {all.direction_hits} / {all.count} · raw 30D direction
+          </div>
+          <div className="text-[10px] text-neutral-600 mt-1">
+            Avg abs error: {all.avg_abs_error_pct != null ? `${all.avg_abs_error_pct}%` : '—'}
+          </div>
+          <div className="text-[9px] text-neutral-600 mt-1.5 leading-snug">
+            Noise floor — sector + macro contaminate every event including no-edge ones.
+          </div>
+        </div>
+
+        {/* Tradeable subset — 3D abnormal vs XBI (the real number) */}
+        <div className={`rounded border-2 ${trColor} bg-bg-card p-3`}>
+          <div className="text-[10px] uppercase tracking-wide text-violet-300 flex items-center gap-1">
+            Tradeable subset
+            <InfoTooltip
+              text="Filtered to events where the model expressed a directional bet (LONG or SHORT) with high enough probability and scenario edge. Abstention rules: probability bias > 0.15, scenario magnitude ≥ 5%, confidence ≥ 0.55, binary catalyst type, exact date. Direction scored against 3-day abnormal return vs XBI (sector-adjusted)."
+            />
+          </div>
+          <div className={`text-2xl font-mono font-medium mt-1 ${trColor.split(' ')[0]}`}>
+            {tr.direction_accuracy_pct != null ? `${tr.direction_accuracy_pct}%` : '—'}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {tr.direction_hits} / {tr.count} · 3D abnormal-vs-XBI
+          </div>
+          <div className="text-[10px] text-neutral-600 mt-1">
+            Avg abs error: {tr.avg_abs_error_pct != null ? `${tr.avg_abs_error_pct}%` : '—'}
+          </div>
+          <div className="text-[9px] text-neutral-600 mt-1.5 leading-snug">
+            Target: ≥65-70% with coverage 25-40%.
+          </div>
+        </div>
+
+        {/* Coverage — what fraction of all events became tradeable */}
+        <div className="rounded border border-border bg-bg-card p-3">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500 flex items-center gap-1">
+            Coverage
+            <InfoTooltip
+              text="Fraction of all events that became tradeable signals (LONG or SHORT). Too high (>40%) means the abstention is too loose — model picks events with no edge. Too low (<25%) means it's over-selective — missing valid setups. The right operating range is 25-40%."
+            />
+          </div>
+          <div className={`text-2xl font-mono font-medium mt-1 ${cvColor}`}>
+            {tr.coverage_pct != null ? `${tr.coverage_pct}%` : '—'}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {tr.count} of {all.count} tradeable
+          </div>
+          <div className="text-[9px] text-neutral-600 mt-1.5 leading-snug">
+            {cv >= 25 && cv <= 40 ? 'In the actionable band.' : (cv > 40 ? 'Too inclusive — abstention loose.' : 'Too selective — abstention tight.')}
+          </div>
+        </div>
+      </div>
+
+      {/* Signal distribution — what the abstention reasons look like */}
+      {agg.signal_distribution && agg.signal_distribution.length > 0 && (
+        <div className="border-t border-border/40 pt-2">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500 mb-1">
+            Signal distribution
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {agg.signal_distribution.map((s) => {
+              const isTradeable = s.signal === 'LONG' || s.signal === 'SHORT';
+              const cls = isTradeable
+                ? (s.signal === 'LONG' ? 'border-emerald-500/40 text-emerald-300' : 'border-orange-500/40 text-orange-300')
+                : 'border-border text-neutral-400';
+              return (
+                <span key={s.signal} className={`inline-flex items-center gap-1 rounded border ${cls} bg-bg-card/40 px-2 py-0.5 text-[10px]`}>
+                  <span className="font-medium">{s.signal}</span>
+                  <span className="text-neutral-500">·</span>
+                  <span className="font-mono">{s.count}</span>
+                </span>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Honest interpretation footer */}
+      <div className="text-[10px] text-neutral-500 leading-relaxed border-t border-border/40 pt-2 space-y-0.5">
+        <div>
+          <span className="text-neutral-400">Why two numbers:</span> {agg.interpretation.noise_floor}.
+        </div>
+        <div>
+          <span className="text-neutral-400">Actionable target:</span> {agg.interpretation.actionable_target}.
+        </div>
+      </div>
     </div>
   );
 }

@@ -937,3 +937,33 @@ export async function refetchTickerCatalysts(ticker: string): Promise<{
 }
 
 
+// ────────────────────────────────────────────────────────────
+// Backtest aggregate v2 — three-tier breakdown
+// ────────────────────────────────────────────────────────────
+// Per user critique: a single 52.5% direction-accuracy number is meaningless
+// because it averages weak/no-edge events with high-conviction setups. The
+// honest scoreboard splits into all_events (noise floor) vs tradeable_events
+// (the model's actual edge after abstention).
+
+export interface AggregateV2Tier {
+  count: number;
+  direction_hits: number;
+  direction_accuracy_pct: number | null;
+  avg_abs_error_pct: number | null;
+  coverage_pct?: number;
+  with_3d_data?: number;
+  _target?: string;
+}
+
+export interface AggregateV2Response {
+  all_events: AggregateV2Tier;
+  tradeable_events: AggregateV2Tier;
+  signal_distribution: Array<{ signal: string; count: number }>;
+  interpretation: { noise_floor: string; actionable_target: string };
+}
+
+export async function getBacktestAggregateV2(): Promise<AggregateV2Response> {
+  return apiFetch(`/admin/post-catalyst/aggregate-v2`);
+}
+
+
