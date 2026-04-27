@@ -952,6 +952,8 @@ export interface AggregateV2Tier {
   avg_abs_error_pct: number | null;
   coverage_pct?: number;
   with_3d_data?: number;
+  judged?: number;
+  deadband_excluded?: number;
   _target?: string;
 }
 
@@ -962,8 +964,36 @@ export interface AggregateV2Response {
   interpretation: { noise_floor: string; actionable_target: string };
 }
 
+// V3 — adds priced-in-aware classifier (LONG_UNDERPRICED_POSITIVE etc.)
+export interface AggregateV3Bucket {
+  signal: string;
+  count: number;
+  judged: number;
+  hits: number;
+  deadband_excluded: number;
+  direction_accuracy_pct: number | null;
+  avg_priced_in_score: number | null;
+  avg_abs_error_pct: number | null;
+}
+
+export interface AggregateV3Response {
+  all_events: AggregateV2Tier;
+  tradeable_v1: AggregateV2Tier;
+  tradeable_v2: AggregateV2Tier;
+  v2_buckets: AggregateV3Bucket[];
+  interpretation: {
+    v2_thesis?: string;
+    denominator_note?: string;
+    actionable_target: string;
+  };
+}
+
 export async function getBacktestAggregateV2(): Promise<AggregateV2Response> {
   return apiFetch(`/admin/post-catalyst/aggregate-v2`);
+}
+
+export async function getBacktestAggregateV3(): Promise<AggregateV3Response> {
+  return apiFetch(`/admin/post-catalyst/aggregate-v3`);
 }
 
 

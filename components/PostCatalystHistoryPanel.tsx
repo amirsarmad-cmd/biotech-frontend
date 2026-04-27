@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { History, TrendingUp, TrendingDown, Check, X, Minus, RefreshCw, Info } from 'lucide-react';
-import { apiFetch, getBacktestAggregateV2, type AggregateV2Response } from '@/lib/api';
+import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, type AggregateV2Response, type AggregateV3Response } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 
 interface PostCatalystOutcome {
@@ -86,6 +86,13 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
     staleTime: 10 * 60_000,
   });
 
+  // V3 — priced-in-aware (LONG_UNDERPRICED_POSITIVE / SHORT_SELL_THE_NEWS)
+  const aggV3Q = useQuery({
+    queryKey: ['post-catalyst-aggregate-v3'],
+    queryFn: () => getBacktestAggregateV3(),
+    staleTime: 10 * 60_000,
+  });
+
   const outcomes = historyQ.data?.outcomes || [];
   const accuracy = accuracyQ.data;
 
@@ -152,6 +159,11 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
           The interpretation footer explains what each number means and what
           the actionable target is. */}
       <ThreeTierScoreboard agg={aggV2Q.data} loading={aggV2Q.isLoading} />
+
+      {/* V2 priced-in-aware breakdown — splits high-prob LONG signals into
+          UNDERPRICED (real long edge) vs SELL_THE_NEWS (priced-in fade)
+          using the runup_30d-derived priced-in score. */}
+      <V2BucketsCard agg={aggV3Q.data} loading={aggV3Q.isLoading} />
 
       {/* (Removed BacktestHealthBanner — its 52.5%/15.9% raw 30D numbers
           are now covered, with proper context, by the ThreeTierScoreboard
@@ -481,6 +493,147 @@ function ThreeTierScoreboard({ agg, loading }: { agg: AggregateV2Response | unde
         <div>
           <span className="text-neutral-400">Actionable target:</span> {agg.interpretation.actionable_target}.
         </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ────────────────────────────────────────────────────────────
+// V2 priced-in-aware classifier breakdown
+// ────────────────────────────────────────────────────────────
+// Per user analysis after V1 showed 31.7% direction accuracy on tradeable
+// (inverse 68.3%): 'old loose signal was anti-alpha. Build classifier
+// around priced-in score, not just probability.'
+//
+// V2 splits high-prob LONG signals by priced-in:
+//   priced_in ≥ 0.65 → SHORT_SELL_THE_NEWS (the inverse signal)
+//   priced_in ≤ 0.45 → LONG_UNDERPRICED_POSITIVE (real long edge)
+//   else            → NO_TRADE_PRICED_IN (skip, ambiguous)
+
+function V2BucketsCard({ agg, loading }: { agg: AggregateV3Response | undefined; loading: boolean }) {
+  if (loading || !agg) {
+    return (
+      <div className="rounded-md border border-border bg-bg-card/40 p-3">
+        <div className="text-[10px] uppercase tracking-wide text-neutral-500">V2 priced-in classifier</div>
+        <div className="text-xs text-neutral-500 mt-1">Loading…</div>
+      </div>
+    );
+  }
+
+  const v1 = agg.tradeable_v1;
+  const v2 = agg.tradeable_v2;
+
+  // Filter buckets to tradeable signals + meaningful no-trade reasons
+  const tradeable_buckets = (agg.v2_buckets || []).filter(b =>
+    ['LONG_UNDERPRICED_POSITIVE', 'SHORT_SELL_THE_NEWS', 'SHORT_LOW_PROBABILITY', 'LONG', 'SHORT'].includes(b.signal)
+  );
+  const skipped_buckets = (agg.v2_buckets || []).filter(b =>
+    !['LONG_UNDERPRICED_POSITIVE', 'SHORT_SELL_THE_NEWS', 'SHORT_LOW_PROBABILITY', 'LONG', 'SHORT'].includes(b.signal)
+  );
+
+  const accColor = (v: number | null) => {
+    if (v == null) return 'text-neutral-400';
+    if (v >= 65) return 'text-emerald-300';
+    if (v >= 55) return 'text-amber-300';
+    return 'text-red-300';
+  };
+
+  const signalColor = (s: string) => {
+    if (s.startsWith('LONG')) return 'border-emerald-500/40 text-emerald-300';
+    if (s.startsWith('SHORT')) return 'border-orange-500/40 text-orange-300';
+    return 'border-border text-neutral-400';
+  };
+
+  return (
+    <div className="rounded-md border border-violet-500/30 bg-violet-500/5 p-3 space-y-3">
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-violet-300">
+        V2 priced-in-aware classifier
+        <InfoTooltip
+          text={`The V1 classifier predicted direction from probability bias alone. Empirical observation: V1 LONG signals had below-coin-flip accuracy on the 3D abnormal-vs-XBI window, suggesting biotech catalysts get faded after the event (sell-the-news). The V2 classifier splits high-probability signals by a priced-in score (composite of pre-event 30d runup, options-implied move, IV percentile). High priced-in → SHORT_SELL_THE_NEWS (fade the news). Low priced-in → LONG_UNDERPRICED_POSITIVE (real long edge).`}
+        />
+      </div>
+
+      {/* V1 vs V2 head-to-head summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="rounded border border-border bg-bg-card p-3">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500">V1 (probability only)</div>
+          <div className={`text-2xl font-mono font-medium mt-1 ${accColor(v1.direction_accuracy_pct)}`}>
+            {v1.direction_accuracy_pct != null ? `${v1.direction_accuracy_pct}%` : '—'}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {v1.direction_hits} / {v1.judged ?? v1.count} judged · {v1.coverage_pct ?? '—'}% coverage
+          </div>
+          <div className="text-[9px] text-neutral-600 mt-1">
+            LONG when p &gt; 0.60, SHORT when p &lt; 0.40
+          </div>
+        </div>
+
+        <div className="rounded border-2 border-violet-500/40 bg-bg-card p-3">
+          <div className="text-[10px] uppercase tracking-wide text-violet-300">V2 (priced-in aware)</div>
+          <div className={`text-2xl font-mono font-medium mt-1 ${accColor(v2.direction_accuracy_pct)}`}>
+            {v2.direction_accuracy_pct != null ? `${v2.direction_accuracy_pct}%` : '—'}
+          </div>
+          <div className="text-[10px] text-neutral-500 mt-0.5">
+            {v2.direction_hits} / {v2.judged ?? v2.count} judged · {v2.coverage_pct ?? '—'}% coverage
+          </div>
+          <div className="text-[9px] text-neutral-600 mt-1">
+            LONG only when not priced in. SELL_THE_NEWS when crowded.
+          </div>
+        </div>
+      </div>
+
+      {/* Per-bucket breakdown — tradeable signals first, then skipped */}
+      {tradeable_buckets.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Tradeable buckets</div>
+          {tradeable_buckets.map((b) => (
+            <div key={b.signal} className="flex items-center gap-2 text-[11px]">
+              <span className={`inline-flex items-center rounded border ${signalColor(b.signal)} bg-bg-card px-2 py-0.5 font-medium w-56 shrink-0`}>
+                {b.signal}
+              </span>
+              <span className="text-neutral-500 w-20 shrink-0 text-right">
+                n={b.count} · judged={b.judged}
+              </span>
+              <span className={`font-mono font-medium w-16 text-right ${accColor(b.direction_accuracy_pct)}`}>
+                {b.direction_accuracy_pct != null ? `${b.direction_accuracy_pct}%` : '—'}
+              </span>
+              {b.avg_priced_in_score != null && (
+                <span className="text-[10px] text-neutral-500">
+                  priced_in {b.avg_priced_in_score.toFixed(2)}
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skipped_buckets.length > 0 && (
+        <div className="space-y-1 border-t border-border/40 pt-2">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-600">Skipped (abstention reasons)</div>
+          <div className="flex flex-wrap gap-1.5">
+            {skipped_buckets.map((b) => (
+              <span key={b.signal} className="inline-flex items-center gap-1 rounded border border-border bg-bg-card/40 px-2 py-0.5 text-[10px] text-neutral-400">
+                <span>{b.signal}</span>
+                <span className="text-neutral-600">·</span>
+                <span className="font-mono">{b.count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Interpretation */}
+      <div className="text-[10px] text-neutral-500 leading-relaxed border-t border-border/40 pt-2 space-y-0.5">
+        {agg.interpretation?.v2_thesis && (
+          <div><span className="text-neutral-400">V2 thesis:</span> {agg.interpretation.v2_thesis}</div>
+        )}
+        {agg.interpretation?.denominator_note && (
+          <div><span className="text-neutral-400">Denominator:</span> {agg.interpretation.denominator_note}</div>
+        )}
+        {agg.interpretation?.actionable_target && (
+          <div><span className="text-neutral-400">Target:</span> {agg.interpretation.actionable_target}</div>
+        )}
       </div>
     </div>
   );
