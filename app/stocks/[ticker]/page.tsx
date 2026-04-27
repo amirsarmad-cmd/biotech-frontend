@@ -30,6 +30,7 @@ import { CatalystRiskPanel } from '@/components/CatalystRiskPanel';
 import { RnpvBreakdownV2 } from '@/components/RnpvBreakdownV2';
 import { OptionsImpliedPanel } from '@/components/OptionsImpliedPanel';
 import { PostCatalystHistoryPanel } from '@/components/PostCatalystHistoryPanel';
+import { DecisionCockpit } from '@/components/DecisionCockpit';
 
 type StockDetailExt = StockDetail & {
   npv_catalyst?: {
@@ -261,19 +262,32 @@ export default function StockDetailPage({ params }: { params: Promise<{ ticker: 
             )}
           </div>
 
-          {/* Section 1: NPV Breakdown */}
-          <NPVBreakdown
-            data={stock.npv}
-            currentPrice={stock.current_price}
-            npvCatalyst={stock.npv_catalyst}
-          />
+          {/* Decision Cockpit — top-of-page summary (ChatGPT pass-4 critique) */}
+          <DecisionCockpit ticker={TICKER} stock={stock} />
 
-          {/* Section 1B: rNPV V2 — structured economics + true year-by-year DCF */}
-          <RnpvBreakdownV2
-            ticker={TICKER}
-            marketCapM={stock.market_cap_m}
-            npvCatalyst={stock.npv_catalyst}
-          />
+          {/* Section 1B: rNPV V2 — primary structured DCF/rNPV (ChatGPT: this is now the canonical valuation) */}
+          <div id="rnpv-detail">
+            <RnpvBreakdownV2
+              ticker={TICKER}
+              marketCapM={stock.market_cap_m}
+              npvCatalyst={stock.npv_catalyst}
+            />
+          </div>
+
+          {/* Section 1: Legacy peak-sales-multiple NPV — collapsed by default (sanity-check only) */}
+          <details className="rounded-lg border border-border/40 bg-bg/30">
+            <summary className="cursor-pointer px-4 py-3 text-sm text-neutral-400 hover:text-neutral-200 select-none">
+              <span className="text-neutral-500">Legacy NPV (peak-sales × multiple)</span>
+              <span className="ml-2 text-[10px] text-neutral-600">— sanity check only; rNPV V2 above is primary</span>
+            </summary>
+            <div className="border-t border-border/40 p-1">
+              <NPVBreakdown
+                data={stock.npv}
+                currentPrice={stock.current_price}
+                npvCatalyst={stock.npv_catalyst}
+              />
+            </div>
+          </details>
 
           {/* Methodology audit #1: options-implied move from yfinance straddle */}
           {stock.options_implied && (
