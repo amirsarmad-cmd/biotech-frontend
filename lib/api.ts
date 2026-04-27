@@ -923,4 +923,17 @@ export async function getCatalystIngestionLog(ticker: string, limit = 20): Promi
   return apiFetch(`/admin/catalysts/${encodeURIComponent(ticker)}/ingestion-log?limit=${limit}`);
 }
 
+export async function refetchTickerCatalysts(ticker: string): Promise<{
+  ticker: string;
+  catalysts_found: number;
+  source: string | null;
+  cost_usd?: number;
+  error?: string | null;
+  persisted: { added: number; updated: number; skipped: number; errors: string[] };
+}> {
+  return apiFetch(`/admin/catalysts/${encodeURIComponent(ticker)}/refetch-now`, {
+    method: 'POST',
+  });
+}
+
 

@@ -22,9 +22,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShieldCheck, Clock, AlertCircle, X, Save, Loader2, Pencil } from 'lucide-react';
+import { ShieldCheck, Clock, AlertCircle, X, Save, Loader2, Pencil, RefreshCw } from 'lucide-react';
 import {
-  addManualCatalyst, editCatalyst, getCatalystIngestionLog,
+  addManualCatalyst, editCatalyst, getCatalystIngestionLog, refetchTickerCatalysts,
   type CatalystDataHealth, type ManualCatalystPayload,
 } from '@/lib/api';
 
@@ -194,6 +194,19 @@ export function CatalystOverrideModal({ ticker, open, onClose, existing }: Modal
     },
   });
 
+  // "Refresh now" — triggers the LLM pipeline immediately for this ticker
+  // instead of waiting for the next scheduled seeder run. Useful when the
+  // freshness badge shows stale data and the user wants up-to-date catalysts
+  // without typing them in manually.
+  const refetchMutation = useMutation({
+    mutationFn: () => refetchTickerCatalysts(ticker),
+    onSuccess: () => {
+      // Invalidate so the page reloads with fresh data + updated ingestion log
+      qc.invalidateQueries({ queryKey: ['stock', ticker] });
+      qc.invalidateQueries({ queryKey: ['catalyst-ingestion-log', ticker] });
+    },
+  });
+
   if (!open) return null;
 
   return (
@@ -346,6 +359,31 @@ export function CatalystOverrideModal({ ticker, open, onClose, existing }: Modal
 
         {/* Footer */}
         <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3 sticky bottom-0 bg-panel">
+          {/* Refetch result feedback — surfaces what came back from the LLM pipeline */}
+          {refetchMutation.isError && (
+            <div className="rounded border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-red-300 mb-2">
+              Refetch failed: {refetchMutation.error instanceof Error ? refetchMutation.error.message : String(refetchMutation.error)}
+            </div>
+          )}
+          {refetchMutation.isSuccess && refetchMutation.data && (
+            <div className="rounded border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-xs text-emerald-300 mb-2">
+              Refresh complete: {refetchMutation.data.catalysts_found} catalysts from{' '}
+              <span className="font-mono">{refetchMutation.data.source || 'unknown'}</span>
+              {refetchMutation.data.persisted && (
+                <> · added {refetchMutation.data.persisted.added}, updated {refetchMutation.data.persisted.updated}</>
+              )}
+            </div>
+          )}
+
+          <button
+            onClick={() => refetchMutation.mutate()}
+            disabled={refetchMutation.isPending}
+            className="flex items-center gap-1.5 rounded border border-violet-500/40 bg-violet-500/5 hover:bg-violet-500/10 disabled:opacity-50 px-3 py-1.5 text-sm text-violet-300 mr-auto"
+            title="Re-run the LLM pipeline for this ticker right now (Gemini → OpenAI → Anthropic). Manual overrides are respected."
+          >
+            {refetchMutation.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Refresh from sources
+          </button>
           <button
             onClick={onClose}
             className="rounded border border-border bg-bg-card hover:bg-bg-card/60 px-3 py-1.5 text-sm text-neutral-300"
