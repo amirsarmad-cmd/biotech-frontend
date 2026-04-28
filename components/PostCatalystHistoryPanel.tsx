@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { History, TrendingUp, TrendingDown, Check, X, Minus, RefreshCw, Info } from 'lucide-react';
-import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, type AggregateV2Response, type AggregateV3Response } from '@/lib/api';
+import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, getV1vsV2SameRow, type AggregateV2Response, type AggregateV3Response, type SameRowABResponse, type WilsonCI } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 
 interface PostCatalystOutcome {
@@ -93,6 +93,15 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
     staleTime: 10 * 60_000,
   });
 
+  // Same-row A/B between V1 and V2 — settles whether V2 actually beats V1.
+  // ChatGPT's critique: 'Compare V1 and V2 on same rows. V2 may not beat V1 —
+  // it may just be more selective.'
+  const sameRowQ = useQuery({
+    queryKey: ['post-catalyst-v1-vs-v2-same-row'],
+    queryFn: () => getV1vsV2SameRow(),
+    staleTime: 10 * 60_000,
+  });
+
   const outcomes = historyQ.data?.outcomes || [];
   const accuracy = accuracyQ.data;
 
@@ -163,7 +172,12 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
       {/* V2 priced-in-aware breakdown — splits high-prob LONG signals into
           UNDERPRICED (real long edge) vs SELL_THE_NEWS (priced-in fade)
           using the runup_30d-derived priced-in score. */}
-      <V2BucketsCard agg={aggV3Q.data} loading={aggV3Q.isLoading} />
+      <V2BucketsCard
+        agg={aggV3Q.data}
+        loading={aggV3Q.isLoading}
+        sameRow={sameRowQ.data}
+        sameRowLoading={sameRowQ.isLoading}
+      />
 
       {/* (Removed BacktestHealthBanner — its 52.5%/15.9% raw 30D numbers
           are now covered, with proper context, by the ThreeTierScoreboard
@@ -502,16 +516,38 @@ function ThreeTierScoreboard({ agg, loading }: { agg: AggregateV2Response | unde
 // ────────────────────────────────────────────────────────────
 // V2 priced-in-aware classifier breakdown
 // ────────────────────────────────────────────────────────────
-// Per user analysis after V1 showed 31.7% direction accuracy on tradeable
-// (inverse 68.3%): 'old loose signal was anti-alpha. Build classifier
-// around priced-in score, not just probability.'
+// V2 adds a runup-based priced-in filter to V1's probability-bias
+// classifier. After empirical buckets showed:
+//   Flat-runup setups (avg -0.5%): V1 LONG = 77.5% on judged
+//   Strong-runup setups (≥+20%):   V1 LONG = 33.3% (inverse 67%)
+// the V2 thresholds were retuned (priced_in ≤ 0.60 → LONG_UNDERPRICED,
+// priced_in ≥ 0.80 → SHORT_SELL_THE_NEWS, mid → NO_TRADE_PRICED_IN).
 //
-// V2 splits high-prob LONG signals by priced-in:
-//   priced_in ≥ 0.65 → SHORT_SELL_THE_NEWS (the inverse signal)
-//   priced_in ≤ 0.45 → LONG_UNDERPRICED_POSITIVE (real long edge)
-//   else            → NO_TRADE_PRICED_IN (skip, ambiguous)
+// Numbers in the UI are IN-SAMPLE (V2 thresholds tuned on the same
+// 459-row backtest). All buckets show 95% Wilson CIs because at
+// n_judged 24-105, point estimates are not enough to claim
+// production-grade accuracy.
+//
+// HISTORY: An earlier version of this card cited '31.7% V1 accuracy /
+// inverse 68.3%' as motivation for V2. That number came from a SQL
+// denominator bug (deadband NULLs counted as misses). Real V1 is
+// 58.4% and the inverse thesis was incorrect. V2 still improves on V1
+// via the priced-in filter, but the lift should be measured on
+// same-row A/B (see /admin/post-catalyst/v1-vs-v2-same-row).
 
-function V2BucketsCard({ agg, loading }: { agg: AggregateV3Response | undefined; loading: boolean }) {
+function formatCI(ci: WilsonCI | null | undefined): string {
+  if (!ci) return '';
+  return `CI ${ci.lower_pct}–${ci.upper_pct}%`;
+}
+
+function V2BucketsCard({
+  agg, loading, sameRow, sameRowLoading,
+}: {
+  agg: AggregateV3Response | undefined;
+  loading: boolean;
+  sameRow: SameRowABResponse | undefined;
+  sameRowLoading: boolean;
+}) {
   if (loading || !agg) {
     return (
       <div className="rounded-md border border-border bg-bg-card/40 p-3">
@@ -550,17 +586,22 @@ function V2BucketsCard({ agg, loading }: { agg: AggregateV3Response | undefined;
       <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-violet-300">
         V2 priced-in-aware classifier
         <InfoTooltip
-          text={`The V1 classifier predicted direction from probability bias alone. Empirical observation: V1 LONG signals had below-coin-flip accuracy on the 3D abnormal-vs-XBI window, suggesting biotech catalysts get faded after the event (sell-the-news). The V2 classifier splits high-probability signals by a priced-in score (composite of pre-event 30d runup, options-implied move, IV percentile). High priced-in → SHORT_SELL_THE_NEWS (fade the news). Low priced-in → LONG_UNDERPRICED_POSITIVE (real long edge).`}
+          text={`V1 uses probability bias alone (p > 0.60 → LONG, p < 0.40 → SHORT). V2 adds a priced-in filter using pre-event 30d runup as a proxy: priced_in ≤ 0.60 (washed-out + flat setups) → LONG_UNDERPRICED_POSITIVE; priced_in ≥ 0.80 (strong runup) → SHORT_SELL_THE_NEWS; mid-zone → NO_TRADE_PRICED_IN. Thresholds were retuned in-sample after empirical bucket data showed flat-runup events have ~78% V1 LONG accuracy and strong-runup events fade ~67%. All numbers below are in-sample with 95% Wilson CIs because at n=24-105 judged rows, point estimates alone aren't enough to claim production-grade accuracy.`}
         />
       </div>
 
-      {/* V1 vs V2 head-to-head summary */}
+      {/* V1 vs V2 head-to-head summary with confidence intervals */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div className="rounded border border-border bg-bg-card p-3">
           <div className="text-[10px] uppercase tracking-wide text-neutral-500">V1 (probability only)</div>
           <div className={`text-2xl font-mono font-medium mt-1 ${accColor(v1.direction_accuracy_pct)}`}>
             {v1.direction_accuracy_pct != null ? `${v1.direction_accuracy_pct}%` : '—'}
           </div>
+          {v1.ci_95_pct && (
+            <div className="text-[10px] text-neutral-500 mt-0.5 font-mono">
+              95% {formatCI(v1.ci_95_pct)}
+            </div>
+          )}
           <div className="text-[10px] text-neutral-500 mt-0.5">
             {v1.direction_hits} / {v1.judged ?? v1.count} judged · {v1.coverage_pct ?? '—'}% coverage
           </div>
@@ -574,33 +615,118 @@ function V2BucketsCard({ agg, loading }: { agg: AggregateV3Response | undefined;
           <div className={`text-2xl font-mono font-medium mt-1 ${accColor(v2.direction_accuracy_pct)}`}>
             {v2.direction_accuracy_pct != null ? `${v2.direction_accuracy_pct}%` : '—'}
           </div>
+          {v2.ci_95_pct && (
+            <div className="text-[10px] text-neutral-500 mt-0.5 font-mono">
+              95% {formatCI(v2.ci_95_pct)}
+            </div>
+          )}
           <div className="text-[10px] text-neutral-500 mt-0.5">
             {v2.direction_hits} / {v2.judged ?? v2.count} judged · {v2.coverage_pct ?? '—'}% coverage
           </div>
           <div className="text-[9px] text-neutral-600 mt-1">
-            LONG only when not priced in. SELL_THE_NEWS when crowded.
+            + runup-based priced-in filter (in-sample)
           </div>
         </div>
       </div>
+
+      {/* Same-row A/B — settles whether V2 is actually better than V1 */}
+      {sameRow && sameRow.common_judged > 0 && (
+        <div className="rounded border border-border bg-bg-card/40 p-3">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500 mb-1.5">
+            Same-row A/B (V1 vs V2)
+            <InfoTooltip text="Per-row comparison on events where both V1 and V2 classify as tradeable AND have a judged outcome (|abnormal_3d| ≥ 3%). V2 is meaningfully better than V1 only if v2_lift ≥ 3pp AND v2-only-correct > v1-only-correct AND CI ranges don't substantially overlap." />
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            <div>
+              <div className="text-neutral-500">Common judged</div>
+              <div className="font-mono text-neutral-200">{sameRow.common_judged}</div>
+            </div>
+            <div>
+              <div className="text-neutral-500">V1 acc</div>
+              <div className={`font-mono ${accColor(sameRow.v1.accuracy_pct)}`}>
+                {sameRow.v1.accuracy_pct ?? '—'}%
+              </div>
+              {sameRow.v1.ci_95_pct && (
+                <div className="text-[9px] text-neutral-600">{formatCI(sameRow.v1.ci_95_pct)}</div>
+              )}
+            </div>
+            <div>
+              <div className="text-neutral-500">V2 acc</div>
+              <div className={`font-mono ${accColor(sameRow.v2.accuracy_pct)}`}>
+                {sameRow.v2.accuracy_pct ?? '—'}%
+              </div>
+              {sameRow.v2.ci_95_pct && (
+                <div className="text-[9px] text-neutral-600">{formatCI(sameRow.v2.ci_95_pct)}</div>
+              )}
+            </div>
+            <div>
+              <div className="text-neutral-500">V2 lift</div>
+              <div className={`font-mono ${
+                sameRow.v2_lift_pp == null ? 'text-neutral-400' :
+                  sameRow.v2_lift_pp >= 3 ? 'text-emerald-300' :
+                    sameRow.v2_lift_pp <= -3 ? 'text-red-300' :
+                      'text-amber-300'
+              }`}>
+                {sameRow.v2_lift_pp != null ? `${sameRow.v2_lift_pp >= 0 ? '+' : ''}${sameRow.v2_lift_pp} pp` : '—'}
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[10px] mt-2 pt-2 border-t border-border/40">
+            <div>
+              <div className="text-neutral-600">Both correct</div>
+              <div className="font-mono text-emerald-300">{sameRow.agreement.both_correct}</div>
+            </div>
+            <div>
+              <div className="text-neutral-600">Both wrong</div>
+              <div className="font-mono text-red-300">{sameRow.agreement.both_wrong}</div>
+            </div>
+            <div>
+              <div className="text-neutral-600">V1 only right</div>
+              <div className="font-mono text-amber-300">{sameRow.agreement.v1_only_correct}</div>
+            </div>
+            <div>
+              <div className="text-neutral-600">V2 only right</div>
+              <div className="font-mono text-violet-300">{sameRow.agreement.v2_only_correct}</div>
+            </div>
+          </div>
+        </div>
+      )}
+      {sameRowLoading && (
+        <div className="rounded border border-border bg-bg-card/40 p-3">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Same-row A/B</div>
+          <div className="text-[11px] text-neutral-500 mt-1">Loading…</div>
+        </div>
+      )}
 
       {/* Per-bucket breakdown — tradeable signals first, then skipped */}
       {tradeable_buckets.length > 0 && (
         <div className="space-y-1.5">
           <div className="text-[10px] uppercase tracking-wide text-neutral-500">Tradeable buckets</div>
           {tradeable_buckets.map((b) => (
-            <div key={b.signal} className="flex items-center gap-2 text-[11px]">
+            <div key={b.signal} className="flex items-center gap-2 text-[11px] flex-wrap">
               <span className={`inline-flex items-center rounded border ${signalColor(b.signal)} bg-bg-card px-2 py-0.5 font-medium w-56 shrink-0`}>
                 {b.signal}
               </span>
-              <span className="text-neutral-500 w-20 shrink-0 text-right">
+              <span className="text-neutral-500 w-24 shrink-0 text-right">
                 n={b.count} · judged={b.judged}
               </span>
               <span className={`font-mono font-medium w-16 text-right ${accColor(b.direction_accuracy_pct)}`}>
                 {b.direction_accuracy_pct != null ? `${b.direction_accuracy_pct}%` : '—'}
               </span>
+              {b.ci_95_pct && (
+                <span className="text-[10px] text-neutral-500 font-mono">
+                  {formatCI(b.ci_95_pct)}
+                </span>
+              )}
               {b.avg_priced_in_score != null && (
                 <span className="text-[10px] text-neutral-500">
                   priced_in {b.avg_priced_in_score.toFixed(2)}
+                </span>
+              )}
+              {!b.production_ready && b.judged > 0 && (
+                <span className="text-[9px] uppercase rounded border border-amber-500/40 bg-amber-500/10 text-amber-300 px-1.5 py-0.5"
+                      title="Research-only: requires n≥50 AND CI lower > 55% to be promoted to production signal.">
+                  research only
                 </span>
               )}
             </div>
@@ -623,15 +749,25 @@ function V2BucketsCard({ agg, loading }: { agg: AggregateV3Response | undefined;
         </div>
       )}
 
-      {/* Interpretation */}
-      <div className="text-[10px] text-neutral-500 leading-relaxed border-t border-border/40 pt-2 space-y-0.5">
-        {agg.interpretation?.v2_thesis && (
-          <div><span className="text-neutral-400">V2 thesis:</span> {agg.interpretation.v2_thesis}</div>
+      {/* Interpretation footer — explains methodology + caveats */}
+      <div className="text-[10px] text-neutral-500 leading-relaxed border-t border-border/40 pt-2 space-y-1">
+        {agg.interpretation?.v2_methodology && (
+          <div><span className="text-neutral-400">Methodology:</span> {agg.interpretation.v2_methodology}</div>
+        )}
+        {agg.interpretation?.in_sample_warning && (
+          <div className="text-amber-300/80"><span className="text-amber-300">⚠ In-sample:</span> {agg.interpretation.in_sample_warning}</div>
+        )}
+        {agg.interpretation?.production_target && (
+          <div><span className="text-neutral-400">Production gate:</span> {agg.interpretation.production_target}</div>
         )}
         {agg.interpretation?.denominator_note && (
           <div><span className="text-neutral-400">Denominator:</span> {agg.interpretation.denominator_note}</div>
         )}
-        {agg.interpretation?.actionable_target && (
+        {/* Backwards compat — older deploys may still return these */}
+        {agg.interpretation?.v2_thesis && !agg.interpretation?.v2_methodology && (
+          <div className="text-amber-300/80"><span className="text-amber-300">⚠ Stale interpretation field:</span> {agg.interpretation.v2_thesis}</div>
+        )}
+        {agg.interpretation?.actionable_target && !agg.interpretation?.production_target && (
           <div><span className="text-neutral-400">Target:</span> {agg.interpretation.actionable_target}</div>
         )}
       </div>

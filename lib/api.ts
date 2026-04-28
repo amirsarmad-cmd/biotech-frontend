@@ -965,6 +965,13 @@ export interface AggregateV2Response {
 }
 
 // V3 — adds priced-in-aware classifier (LONG_UNDERPRICED_POSITIVE etc.)
+export interface WilsonCI {
+  lower_pct: number;
+  upper_pct: number;
+  n: number;
+  hits: number;
+}
+
 export interface AggregateV3Bucket {
   signal: string;
   count: number;
@@ -972,20 +979,45 @@ export interface AggregateV3Bucket {
   hits: number;
   deadband_excluded: number;
   direction_accuracy_pct: number | null;
+  ci_95_pct: WilsonCI | null;
+  production_ready: boolean;
   avg_priced_in_score: number | null;
   avg_abs_error_pct: number | null;
 }
 
+// Reuse AggregateV2Tier but with optional ci_95_pct field
+export interface AggregateV3Tier extends AggregateV2Tier {
+  ci_95_pct?: WilsonCI | null;
+}
+
 export interface AggregateV3Response {
-  all_events: AggregateV2Tier;
-  tradeable_v1: AggregateV2Tier;
-  tradeable_v2: AggregateV2Tier;
+  all_events: AggregateV3Tier;
+  tradeable_v1: AggregateV3Tier;
+  tradeable_v2: AggregateV3Tier;
   v2_buckets: AggregateV3Bucket[];
   interpretation: {
-    v2_thesis?: string;
+    v2_methodology?: string;
     denominator_note?: string;
-    actionable_target: string;
+    in_sample_warning?: string;
+    production_target?: string;
+    // Legacy fields (older deploys may still return these)
+    v2_thesis?: string;
+    actionable_target?: string;
   };
+}
+
+export interface SameRowABResponse {
+  common_judged: number;
+  v1: { hits: number; accuracy_pct: number | null; ci_95_pct: WilsonCI | null };
+  v2: { hits: number; accuracy_pct: number | null; ci_95_pct: WilsonCI | null };
+  agreement: {
+    both_correct: number;
+    both_wrong: number;
+    v1_only_correct: number;
+    v2_only_correct: number;
+  };
+  v2_lift_pp: number | null;
+  interpretation: { rule_of_thumb: string };
 }
 
 export async function getBacktestAggregateV2(): Promise<AggregateV2Response> {
@@ -994,6 +1026,10 @@ export async function getBacktestAggregateV2(): Promise<AggregateV2Response> {
 
 export async function getBacktestAggregateV3(): Promise<AggregateV3Response> {
   return apiFetch(`/admin/post-catalyst/aggregate-v3`);
+}
+
+export async function getV1vsV2SameRow(): Promise<SameRowABResponse> {
+  return apiFetch(`/admin/post-catalyst/v1-vs-v2-same-row`);
 }
 
 
