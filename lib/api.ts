@@ -1032,4 +1032,35 @@ export async function getV1vsV2SameRow(): Promise<SameRowABResponse> {
   return apiFetch(`/admin/post-catalyst/v1-vs-v2-same-row`);
 }
 
+// Precision-coverage curve: sweep over min_confidence threshold
+export interface PrecisionCoveragePoint {
+  min_confidence: number;
+  n_tradeable: number;
+  n_judged: number;
+  coverage_pct: number;
+  hits: number;
+  accuracy_pct: number | null;
+  ci_95_pct: WilsonCI | null;
+  classification_distribution: Record<string, number>;
+}
+
+export interface PrecisionCoverageCurveResponse {
+  total_events: number;
+  current_default_threshold: number;
+  points: PrecisionCoveragePoint[];
+  sweet_spot: {
+    min_confidence: number;
+    coverage_pct: number;
+    accuracy_pct: number;
+    ci_95_pct: WilsonCI;
+    n_judged: number;
+    rationale: string;
+  } | null;
+  interpretation: { method: string; caveat: string };
+}
+
+export async function getPrecisionCoverageCurve(): Promise<PrecisionCoverageCurveResponse> {
+  return apiFetch(`/admin/post-catalyst/precision-coverage-curve`);
+}
+
 

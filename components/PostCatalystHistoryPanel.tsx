@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { History, TrendingUp, TrendingDown, Check, X, Minus, RefreshCw, Info } from 'lucide-react';
-import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, getV1vsV2SameRow, type AggregateV2Response, type AggregateV3Response, type SameRowABResponse, type WilsonCI } from '@/lib/api';
+import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, getV1vsV2SameRow, getPrecisionCoverageCurve, type AggregateV2Response, type AggregateV3Response, type SameRowABResponse, type WilsonCI, type PrecisionCoverageCurveResponse } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 
 interface PostCatalystOutcome {
@@ -102,6 +102,15 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
     staleTime: 10 * 60_000,
   });
 
+  // Precision-coverage curve — sweeps min_confidence from 0.50 → 0.80 and
+  // shows accuracy + CI at each threshold. ChatGPT: 'If 70% only happens at
+  // 5% coverage it's not useful. You need a curve.'
+  const curveQ = useQuery({
+    queryKey: ['post-catalyst-precision-coverage-curve'],
+    queryFn: () => getPrecisionCoverageCurve(),
+    staleTime: 10 * 60_000,
+  });
+
   const outcomes = historyQ.data?.outcomes || [];
   const accuracy = accuracyQ.data;
 
@@ -177,6 +186,8 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
         loading={aggV3Q.isLoading}
         sameRow={sameRowQ.data}
         sameRowLoading={sameRowQ.isLoading}
+        curve={curveQ.data}
+        curveLoading={curveQ.isLoading}
       />
 
       {/* (Removed BacktestHealthBanner — its 52.5%/15.9% raw 30D numbers
@@ -541,12 +552,14 @@ function formatCI(ci: WilsonCI | null | undefined): string {
 }
 
 function V2BucketsCard({
-  agg, loading, sameRow, sameRowLoading,
+  agg, loading, sameRow, sameRowLoading, curve, curveLoading,
 }: {
   agg: AggregateV3Response | undefined;
   loading: boolean;
   sameRow: SameRowABResponse | undefined;
   sameRowLoading: boolean;
+  curve: PrecisionCoverageCurveResponse | undefined;
+  curveLoading: boolean;
 }) {
   if (loading || !agg) {
     return (
@@ -624,7 +637,7 @@ function V2BucketsCard({
             {v2.direction_hits} / {v2.judged ?? v2.count} judged · {v2.coverage_pct ?? '—'}% coverage
           </div>
           <div className="text-[9px] text-neutral-600 mt-1">
-            + runup-based priced-in filter (in-sample)
+            + sector-adjusted runup priced-in filter
           </div>
         </div>
       </div>
@@ -698,6 +711,77 @@ function V2BucketsCard({
         </div>
       )}
 
+      {/* Precision-coverage curve — what-if sweep of min_confidence
+          threshold. ChatGPT critique: 'You need a curve: coverage 10% →
+          hit rate?, coverage 20% → hit rate?'. Uses sector-adjusted runup
+          when available. Read-only — does not re-classify. */}
+      {curve && curve.points && curve.points.length > 0 && (
+        <div className="rounded border border-border bg-bg-card/40 p-3">
+          <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-neutral-500 mb-1.5">
+            Precision-coverage curve
+            <InfoTooltip text="Sweeps min_confidence threshold from 0.50 to 0.80. For each threshold, classifies all backtest rows with V2 (using sector-adjusted runup when available) and reports coverage (% of total events flagged tradeable), accuracy on judged rows, and Wilson 95% CI. Lets us pick a threshold that lands in the 25-40% coverage band while preserving accuracy. If the CI lower bound never crosses ~55% at any threshold, the sample is too small to claim production-grade accuracy at any coverage level." />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="text-[11px] w-full">
+              <thead>
+                <tr className="text-neutral-500 border-b border-border/40">
+                  <th className="text-left py-1 pr-3 font-normal">min_conf</th>
+                  <th className="text-right py-1 px-2 font-normal">trade</th>
+                  <th className="text-right py-1 px-2 font-normal">judged</th>
+                  <th className="text-right py-1 px-2 font-normal">cov%</th>
+                  <th className="text-right py-1 px-2 font-normal">acc%</th>
+                  <th className="text-right py-1 pl-2 font-normal">95% CI</th>
+                </tr>
+              </thead>
+              <tbody>
+                {curve.points.map((p) => {
+                  const isCurrent = Math.abs(p.min_confidence - curve.current_default_threshold) < 0.001;
+                  const isSweet = curve.sweet_spot && Math.abs(p.min_confidence - curve.sweet_spot.min_confidence) < 0.001;
+                  const accCol = p.accuracy_pct == null ? 'text-neutral-400' :
+                    p.accuracy_pct >= 65 ? 'text-emerald-300' :
+                      p.accuracy_pct >= 55 ? 'text-amber-300' : 'text-red-300';
+                  return (
+                    <tr key={p.min_confidence} className={`${isCurrent ? 'bg-violet-500/10' : ''} ${isSweet ? 'border-l-2 border-emerald-400' : ''}`}>
+                      <td className="py-1 pr-3 font-mono">
+                        {p.min_confidence.toFixed(2)}
+                        {isCurrent && <span className="text-[9px] text-violet-400 ml-1">[current]</span>}
+                        {isSweet && <span className="text-[9px] text-emerald-400 ml-1">[sweet]</span>}
+                      </td>
+                      <td className="py-1 px-2 font-mono text-right text-neutral-300">{p.n_tradeable}</td>
+                      <td className="py-1 px-2 font-mono text-right text-neutral-400">{p.n_judged}</td>
+                      <td className="py-1 px-2 font-mono text-right text-neutral-300">{p.coverage_pct}%</td>
+                      <td className={`py-1 px-2 font-mono text-right ${accCol}`}>
+                        {p.accuracy_pct != null ? `${p.accuracy_pct}%` : '—'}
+                      </td>
+                      <td className="py-1 pl-2 font-mono text-right text-neutral-500 text-[10px]">
+                        {p.ci_95_pct ? `[${p.ci_95_pct.lower_pct}, ${p.ci_95_pct.upper_pct}]` : '—'}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {curve.sweet_spot ? (
+            <div className="mt-2 pt-2 border-t border-border/40 text-[10px] text-emerald-300/90">
+              <span className="font-medium">Recommended:</span> min_confidence={curve.sweet_spot.min_confidence}
+              {' '}({curve.sweet_spot.coverage_pct}% coverage, {curve.sweet_spot.accuracy_pct}% accuracy,
+              {' '}CI [{curve.sweet_spot.ci_95_pct.lower_pct}, {curve.sweet_spot.ci_95_pct.upper_pct}])
+            </div>
+          ) : (
+            <div className="mt-2 pt-2 border-t border-border/40 text-[10px] text-amber-300/90">
+              <span className="font-medium">⚠ No threshold passes the production gate</span> (cov ≥ 25% AND n_judged ≥ 30 AND CI lower &gt; 55%).
+              The 459-row sample is too small to claim production-grade accuracy at any coverage level — more data is needed before tightening the threshold buys us anything.
+            </div>
+          )}
+        </div>
+      )}
+      {curveLoading && (
+        <div className="rounded border border-border bg-bg-card/40 p-3">
+          <div className="text-[10px] uppercase tracking-wide text-neutral-500">Precision-coverage curve</div>
+          <div className="text-[11px] text-neutral-500 mt-1">Loading…</div>
+        </div>
+      )}
       {/* Per-bucket breakdown — tradeable signals first, then skipped */}
       {tradeable_buckets.length > 0 && (
         <div className="space-y-1.5">
