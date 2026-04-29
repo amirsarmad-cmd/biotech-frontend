@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { History, TrendingUp, TrendingDown, Check, X, Minus, RefreshCw, Info } from 'lucide-react';
-import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, getV1vsV2SameRow, getPrecisionCoverageCurve, type AggregateV2Response, type AggregateV3Response, type SameRowABResponse, type WilsonCI, type PrecisionCoverageCurveResponse } from '@/lib/api';
+import { apiFetch, getBacktestAggregateV2, getBacktestAggregateV3, getV1vsV2SameRow, getPrecisionCoverageCurve, getOosAggregate, getAggregateByType, type AggregateV2Response, type AggregateV3Response, type SameRowABResponse, type WilsonCI, type PrecisionCoverageCurveResponse, type OosAggregateResponse, type CatalystTypeAggregateResponse } from '@/lib/api';
 import { InfoTooltip } from './tooltips';
 
 interface PostCatalystOutcome {
@@ -111,6 +111,20 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
     staleTime: 10 * 60_000,
   });
 
+  // OOS aggregate — forward snapshots evaluated against actual outcomes
+  const oosQ = useQuery({
+    queryKey: ['post-catalyst-oos-aggregate'],
+    queryFn: () => getOosAggregate(),
+    staleTime: 10 * 60_000,
+  });
+
+  // Per-catalyst-type V1 vs V2 breakdown
+  const typeQ = useQuery({
+    queryKey: ['post-catalyst-aggregate-by-type'],
+    queryFn: () => getAggregateByType(),
+    staleTime: 10 * 60_000,
+  });
+
   const outcomes = historyQ.data?.outcomes || [];
   const accuracy = accuracyQ.data;
 
@@ -189,6 +203,12 @@ export function PostCatalystHistoryPanel({ ticker }: Props) {
         curve={curveQ.data}
         curveLoading={curveQ.isLoading}
       />
+
+      {/* OOS validation — forward snapshots vs actual outcomes */}
+      <OosCard oos={oosQ.data} loading={oosQ.isLoading} />
+
+      {/* Per-catalyst-type V2 lift breakdown */}
+      <CatalystTypeCard types={typeQ.data} loading={typeQ.isLoading} />
 
       {/* (Removed BacktestHealthBanner — its 52.5%/15.9% raw 30D numbers
           are now covered, with proper context, by the ThreeTierScoreboard
@@ -549,6 +569,168 @@ function ThreeTierScoreboard({ agg, loading }: { agg: AggregateV2Response | unde
 function formatCI(ci: WilsonCI | null | undefined): string {
   if (!ci) return '';
   return `CI ${ci.lower_pct}–${ci.upper_pct}%`;
+}
+
+function OosCard({ oos, loading }: { oos: OosAggregateResponse | undefined; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="rounded-md border border-border bg-bg-card/40 p-3">
+        <div className="text-[10px] uppercase tracking-wide text-cyan-400/70">Out-of-Sample Validation</div>
+        <div className="text-xs text-neutral-500 mt-1">Loading…</div>
+      </div>
+    );
+  }
+  if (!oos) return null;
+
+  const tradeable = (oos.buckets || []).filter(b =>
+    ['LONG_UNDERPRICED_POSITIVE', 'SHORT_SELL_THE_NEWS', 'SHORT_LOW_PROBABILITY', 'LONG', 'SHORT'].includes(b.signal)
+  );
+
+  return (
+    <div className="rounded-md border border-cyan-500/30 bg-cyan-500/5 p-3 space-y-3">
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-cyan-300">
+        Out-of-Sample Validation
+        <InfoTooltip text="Forward-looking predictions made before the outcome was known, now evaluated against actual post-catalyst moves. Unlike the in-sample numbers above, these snapshots were frozen at prediction time and cannot be retroactively fitted." />
+        {oos.days_of_oos_data != null && (
+          <span className="ml-auto text-[10px] font-mono text-neutral-400 normal-case">
+            {oos.days_of_oos_data}d of OOS data
+          </span>
+        )}
+      </div>
+
+      <div className="grid grid-cols-3 gap-3 text-[11px]">
+        <div>
+          <div className="text-neutral-500">Snapshots</div>
+          <div className="font-mono text-neutral-200">{oos.tradeable_total}</div>
+          {oos.evaluated > 0 && (
+            <div className="text-[9px] text-neutral-600">{oos.evaluated} evaluated</div>
+          )}
+          {(oos.tradeable_total - oos.evaluated) > 0 && (
+            <div className="text-[9px] text-amber-500/70">{oos.tradeable_total - oos.evaluated} pending</div>
+          )}
+        </div>
+        <div>
+          <div className="text-neutral-500">OOS Accuracy</div>
+          <div className={`font-mono ${
+            oos.direction_accuracy_pct == null ? 'text-neutral-400' :
+            oos.direction_accuracy_pct >= 65 ? 'text-emerald-300' :
+            oos.direction_accuracy_pct >= 55 ? 'text-amber-300' : 'text-red-300'
+          }`}>
+            {oos.direction_accuracy_pct != null ? `${oos.direction_accuracy_pct}%` : '—'}
+          </div>
+          {oos.ci_95_pct && (
+            <div className="text-[9px] text-neutral-600">{formatCI(oos.ci_95_pct)}</div>
+          )}
+        </div>
+        <div>
+          <div className="text-neutral-500">Judged</div>
+          <div className="font-mono text-neutral-200">{oos.judged > 0 ? `${oos.hits}/${oos.judged}` : '—'}</div>
+          <div className="text-[9px] text-neutral-600">|abnormal_3d| ≥ 3%</div>
+        </div>
+      </div>
+
+      {tradeable.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-[9px] uppercase tracking-wide text-neutral-600">Per-signal breakdown</div>
+          {tradeable.map(b => (
+            <div key={b.signal} className="flex items-center gap-2 text-[11px]">
+              <span className={`font-mono text-[10px] ${b.signal.startsWith('LONG') ? 'text-emerald-400' : 'text-orange-400'}`}>
+                {b.signal}
+              </span>
+              <span className="text-neutral-500 ml-auto">{b.count} snaps</span>
+              <span className="font-mono text-neutral-300 w-10 text-right">
+                {b.direction_accuracy_pct != null ? `${b.direction_accuracy_pct}%` : '—'}
+              </span>
+              {b.ci_95_pct && (
+                <span className="text-[9px] text-neutral-600 w-24">{formatCI(b.ci_95_pct)}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {oos.judged === 0 && (
+        <div className="text-[10px] text-neutral-500">
+          No snapshots evaluated yet — outcomes accrue as catalyst dates pass and price data is collected.
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CatalystTypeCard({ types, loading }: { types: CatalystTypeAggregateResponse | undefined; loading: boolean }) {
+  if (loading) {
+    return (
+      <div className="rounded-md border border-border bg-bg-card/40 p-3">
+        <div className="text-[10px] uppercase tracking-wide text-amber-400/70">V2 Lift by Catalyst Type</div>
+        <div className="text-xs text-neutral-500 mt-1">Loading…</div>
+      </div>
+    );
+  }
+  if (!types || !types.types?.length) return null;
+
+  const liftColor = (pp: number | null) => {
+    if (pp == null) return 'text-neutral-400';
+    if (pp >= 5) return 'text-emerald-300';
+    if (pp <= -2) return 'text-red-300';
+    return 'text-amber-300';
+  };
+
+  return (
+    <div className="rounded-md border border-amber-500/30 bg-amber-500/5 p-3 space-y-3">
+      <div className="flex items-center gap-1 text-[10px] uppercase tracking-wide text-amber-300">
+        V2 Lift by Catalyst Type
+        <InfoTooltip text="V2 accuracy vs V1 accuracy, broken down by catalyst type. Key finding: V2 helps Phase 2 readouts (+20pp) but slightly hurts FDA Decisions (-1pp). This motivates catalyst-type-specific thresholds in V3. Production-ready = n_judged ≥ 30 AND CI lower > 55%." />
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-[11px]">
+          <thead>
+            <tr className="text-[9px] uppercase tracking-wide text-neutral-600 border-b border-border/40">
+              <th className="text-left py-1 pr-2">Type</th>
+              <th className="text-right pr-2">n</th>
+              <th className="text-right pr-2">V1 acc</th>
+              <th className="text-right pr-2">V2 acc</th>
+              <th className="text-right pr-2">Lift</th>
+              <th className="text-right">Gate</th>
+            </tr>
+          </thead>
+          <tbody>
+            {types.types.map((row, i) => (
+              <tr key={i} className="border-b border-border/20 last:border-0">
+                <td className="py-1 pr-2 text-neutral-300 max-w-[120px] truncate" title={row.catalyst_type ?? 'Unknown'}>
+                  {row.catalyst_type ?? 'Unknown'}
+                </td>
+                <td className="text-right pr-2 font-mono text-neutral-400">{row.total_events}</td>
+                <td className="text-right pr-2 font-mono text-neutral-400">
+                  {row.v1.accuracy_pct != null ? `${row.v1.accuracy_pct}%` : '—'}
+                </td>
+                <td className="text-right pr-2 font-mono text-neutral-300">
+                  {row.v2.accuracy_pct != null ? `${row.v2.accuracy_pct}%` : '—'}
+                </td>
+                <td className={`text-right pr-2 font-mono ${liftColor(row.v2_lift_pp)}`}>
+                  {row.v2_lift_pp != null ? `${row.v2_lift_pp >= 0 ? '+' : ''}${row.v2_lift_pp}pp` : '—'}
+                </td>
+                <td className="text-right">
+                  {row.v2.production_ready ? (
+                    <span className="text-emerald-400 text-[9px]">✓ prod</span>
+                  ) : (
+                    <span className="text-neutral-600 text-[9px]">research</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="text-[9px] text-neutral-600 border-t border-border/40 pt-1.5">
+        {types.interpretation?.production_gate && (
+          <span>Gate: {types.interpretation.production_gate}</span>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function V2BucketsCard({

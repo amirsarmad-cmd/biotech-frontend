@@ -1063,4 +1063,67 @@ export async function getPrecisionCoverageCurve(): Promise<PrecisionCoverageCurv
   return apiFetch(`/admin/post-catalyst/precision-coverage-curve`);
 }
 
+// OOS aggregate — prediction_snapshots evaluated against actual outcomes
+export interface OosBucket {
+  signal: string;
+  count: number;
+  judged: number;
+  hits: number;
+  direction_accuracy_pct: number | null;
+  ci_95_pct: WilsonCI | null;
+}
+
+export interface OosAggregateResponse {
+  signal_version: string;
+  tradeable_total: number;
+  evaluated: number;
+  judged: number;
+  hits: number;
+  direction_accuracy_pct: number | null;
+  earliest_prediction: string | null;
+  latest_prediction: string | null;
+  days_of_oos_data: number | null;
+  buckets: OosBucket[];
+  ci_95_pct: WilsonCI | null;
+  is_oos: boolean;
+  _note: string;
+}
+
+export async function getOosAggregate(signalVersion = 'v2'): Promise<OosAggregateResponse> {
+  return apiFetch(`/admin/post-catalyst/oos-aggregate?signal_version=${signalVersion}`);
+}
+
+// Per-catalyst-type V1 vs V2 breakdown
+export interface CatalystTypeV1V2 {
+  tradeable: number;
+  judged: number;
+  hits: number;
+  accuracy_pct: number | null;
+  ci_95_pct: WilsonCI | null;
+}
+
+export interface CatalystTypeV2Stats extends CatalystTypeV1V2 {
+  production_ready: boolean;
+}
+
+export interface CatalystTypeRow {
+  catalyst_type: string | null;
+  total_events: number;
+  v1: CatalystTypeV1V2;
+  v2: CatalystTypeV2Stats;
+  v2_lift_pp: number | null;
+}
+
+export interface CatalystTypeAggregateResponse {
+  types: CatalystTypeRow[];
+  interpretation: {
+    use_case: string;
+    production_gate: string;
+  };
+}
+
+export async function getAggregateByType(): Promise<CatalystTypeAggregateResponse> {
+  return apiFetch('/admin/post-catalyst/aggregate-by-catalyst-type');
+}
+
 
