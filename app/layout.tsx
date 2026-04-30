@@ -25,6 +25,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Link href="/analytics" className="text-neutral-400 hover:text-neutral-100 transition">Analytics</Link>
                 <Link href="/weights" className="text-neutral-400 hover:text-neutral-100 transition">Weights</Link>
                 <Link href="/tokens" className="text-neutral-400 hover:text-neutral-100 transition">Tokens</Link>
+                <Link href="/memory" className="text-neutral-400 hover:text-neutral-100 transition">Memory</Link>
               </nav>
             </div>
           </header>

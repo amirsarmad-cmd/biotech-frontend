@@ -6,7 +6,15 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p ${PORT:-3000}",
-    "lint": "next lint"
+    "lint": "next lint",
+    "memory:init": "node scripts/memory.mjs init",
+    "memory:status": "node scripts/memory.mjs status",
+    "memory:index": "node scripts/memory.mjs index",
+    "memory:session": "node scripts/memory.mjs session",
+    "memory:decision": "node scripts/memory.mjs decision",
+    "memory:design": "node scripts/memory.mjs design",
+    "memory:handoff": "node scripts/memory.mjs handoff",
+    "memory:mcp": "node mcp/project-memory-server.mjs"
   },
   "dependencies": {
     "next": "^15.1.11",
@@ -19,12 +27,14 @@
     "recharts": "^2.15.0"
   },
   "devDependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5",
     "tailwindcss": "^3.4.17",
     "postcss": "^8.5.1",
-    "autoprefixer": "^10.4.20"
+    "autoprefixer": "^10.4.20",
+    "zod": "^4.4.1"
   }
 }

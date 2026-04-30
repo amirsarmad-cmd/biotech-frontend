@@ -1,6 +1,11 @@
 node_modules/
 .next/
 .vercel/
+.claude/settings.local.json
+.claude/*.lock
+.env
+.env.*
+!.env.example
 .env*.local
 *.tsbuildinfo
 .DS_Store

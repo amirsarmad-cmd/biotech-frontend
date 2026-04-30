@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "universal-memory": {
+      "command": "node",
+      "args": ["C:/Users/itsup/agent-memory/mcp/universal-memory-server.mjs"]
+    },
+    "project-memory": {
+      "command": "node",
+      "args": ["mcp/project-memory-server.mjs"]
+    }
+  }
+}
